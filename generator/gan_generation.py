@@ -3,7 +3,7 @@ import torch
 from torchinfo import summary
 import time
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import ToTensor, Normalize, Compose, transforms
+from torchvision.transforms import ToTensor, Normalize, transforms
 from PIL import Image
 import segmentation_models_pytorch as smp
 import matplotlib.pyplot as plt
@@ -44,7 +44,7 @@ class TIFDataset(Dataset):
         return full_image, center_crop_image, full_mask
 
 class GANTrainer:
-    def __init__(self, image_path, mask_path, output_path, epochs, batch_size, lr_g, lr_d):
+    def __init__(self, image_path, mask_path, output_path, epochs, batch_size, lr_g, lr_d, load_weights=True):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.image_path = image_path
         self.mask_path = mask_path
@@ -53,6 +53,7 @@ class GANTrainer:
         self.batch_size = batch_size
         self.lr_g = lr_g
         self.lr_d = lr_d
+        self.load_weights = load_weights
         self._initialize_transforms()
         self._prepare_data()
         self._build_models()
@@ -101,12 +102,60 @@ class GANTrainer:
         self.loss_fn_d = torch.nn.BCEWithLogitsLoss()
         self.fid_metric = FrechetInceptionDistance(feature=2048).to(self.device)
 
-    def train(self):
+        if self.load_weights:
+            self._load_models()
 
-        def _denormalize(tensor, mean, std):
-            for t, m, s in zip(tensor, mean, std):
-                t.mul_(s).add_(m)
-            return tensor
+    def _load_models(self):
+        generator_path = os.path.join(self.output_path, "generator.pth")
+        discriminator_path = os.path.join(self.output_path, "discriminator.pth")
+        if os.path.exists(generator_path):
+            self.generator.load_state_dict(torch.load(generator_path, map_location=self.device, weights_only=True))
+            print("Веса генератора загружены.")
+        if os.path.exists(discriminator_path):
+            self.discriminator.load_state_dict(torch.load(discriminator_path, map_location=self.device, weights_only=True))
+            print("Веса дискриминатора загружены.")
+
+    def _denormalize(self, tensor, mean, std):
+        """Denormalize tensor for visualization."""
+        for t, m, s in zip(tensor, mean, std):
+            t.mul_(s).add_(m)
+        return tensor
+
+    def visualize(self):
+        """Visualize the original images, inputs, and generated masks."""
+
+        self.generator.eval()
+        with torch.no_grad():
+            full_images, center_crop_images, masks = next(iter(self.dataloader))
+            full_images, center_crop_images, masks = full_images.to(self.device), center_crop_images.to(self.device), masks.to(self.device)
+            generated_masks = self.generator(center_crop_images)
+            binary_generated_masks = (torch.sigmoid(generated_masks) > 0.3).float()
+
+            plt.figure(figsize=(15, 5))
+
+            plt.subplot(1, 4, 1)
+            plt.title("Original Image")
+            plt.imshow(self._denormalize(full_images[0].cpu(), mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]).permute(1, 2, 0).clip(0, 1))
+            plt.axis("off")
+
+            plt.subplot(1, 4, 2)
+            plt.title("Center Crop (Input)")
+            plt.imshow(self._denormalize(center_crop_images[0].cpu(), mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]).permute(1, 2, 0).clip(0, 1))
+            plt.axis("off")
+
+            plt.subplot(1, 4, 3)
+            plt.title("Ground Truth Mask")
+            plt.imshow(masks[0].cpu().squeeze(), cmap="gray")
+            plt.axis("off")
+
+            plt.subplot(1, 4, 4)
+            plt.title("Generated Mask")
+            plt.imshow(binary_generated_masks[0].cpu().squeeze(), cmap="gray")
+            plt.axis("off")
+
+            plt.show()
+
+    def train(self):
 
         for epoch in range(self.epochs):
             self.generator.train()
@@ -165,7 +214,7 @@ class GANTrainer:
                     binary_generated_masks = (torch.sigmoid(generated_masks) > 0.5).float()
                     binary_generated_masks = binary_generated_masks.repeat(1, 3, 1, 1)  # Добавляем каналы
 
-                    denorm_images = _denormalize(center_crop_images.clone(), mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    denorm_images = self._denormalize(center_crop_images.clone(), mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                     denorm_images = (denorm_images * 255).byte()  # Преобразование в uint8
                     binary_generated_masks = (binary_generated_masks * 255).byte()  # Преобразование в uint8
 
@@ -178,8 +227,8 @@ class GANTrainer:
                 fid_score = self.fid_metric.compute()
                 print(f"FID Score на эпохе {epoch + 1}: {fid_score:.4f}")
 
+        self.visualize()
+
     def _save_models(self):
-        generator_path = os.path.join(self.output_path, f'generator.pth')
-        discriminator_path = os.path.join(self.output_path, f'discriminator.pth')
-        torch.save(self.generator.state_dict(), generator_path)
-        torch.save(self.discriminator.state_dict(), discriminator_path)
+        torch.save(self.generator.state_dict(), os.path.join(self.output_path, f"generator.pth"))
+        torch.save(self.discriminator.state_dict(), os.path.join(self.output_path, f"discriminator.pth"))
