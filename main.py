@@ -8,7 +8,7 @@ def main():
     OUTPUT_MASKS_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'slice_analyze/output_masks')
     generator_path = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'model_weight')
 
-    trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, generator_path, epochs=2, batch_size=4, lr_g=0.0001, lr_d=0.00005, load_weights=True)
+    trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, generator_path, epochs=2, batch_size=4, lr_g=0.0001, lr_d=0.0001, load_weights=True)
     trainer.train()
 
 if __name__ == "__main__":
