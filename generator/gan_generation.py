@@ -9,6 +9,14 @@ import segmentation_models_pytorch as smp
 import matplotlib.pyplot as plt
 from torchmetrics.image.fid import FrechetInceptionDistance
 
+def dice_loss(pred, target):
+    smooth = 1.0
+    pred = torch.sigmoid(pred)
+    intersection = (pred * target).sum(dim=(1, 2, 3))
+    union = pred.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3))
+    dice = (2.0 * intersection + smooth) / (union + smooth)
+    return 1 - dice.mean()
+
 class TIFDataset(Dataset):
     def __init__(self, image_paths, mask_paths, image_transform=None, mask_transform=None):
         self.image_paths = image_paths
@@ -31,8 +39,8 @@ class TIFDataset(Dataset):
 
         noise_image = torch.randn_like(full_image)
         _, h, w = full_image.shape
-        ch, cw = h // 2, w // 2
-        top, left = h // 4, w // 4
+        ch, cw = int(h * 0.65), int(w * 0.65)
+        top, left = (h - ch) // 2, (w - cw) // 2
         bottom, right = top + ch, left + cw
         noise_image[:, top:bottom, left:right] = full_image[:, top:bottom, left:right]
 
@@ -96,15 +104,18 @@ class GANTrainer:
             torch.nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
             torch.nn.BatchNorm2d(256),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Conv2d(256, 1, kernel_size=4, stride=1, padding=0),
-            torch.nn.AdaptiveAvgPool2d((1, 1)),  # Сводим к (N, 1, 1, 1)
-            torch.nn.Flatten(),  # Преобразуем в (N, 1)
+            torch.nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
+            torch.nn.BatchNorm2d(512),
+            torch.nn.LeakyReLU(0.2, inplace=True),
+            torch.nn.Conv2d(512, 1, kernel_size=4, stride=1, padding=0),
+            torch.nn.AdaptiveAvgPool2d((1, 1)),
+            torch.nn.Flatten(),
             torch.nn.Sigmoid()
         ).to(self.device)
 
         self.optimizer_g = torch.optim.Adam(self.generator.parameters(), lr=self.lr_g)
         self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(), lr=self.lr_d)
-        self.loss_fn_g = torch.nn.BCEWithLogitsLoss()
+        self.loss_fn_g = dice_loss
         self.loss_fn_d = torch.nn.BCEWithLogitsLoss()
 
         if self.load_weights:
@@ -170,8 +181,7 @@ class GANTrainer:
             start_time = time.time()
 
             for full_images, noise_images, full_masks in self.dataloader:
-                full_images, noise_images, full_masks = \
-                    full_images.to(self.device), noise_images.to(self.device), full_masks.to(self.device)
+                full_images, noise_images, full_masks = full_images.to(self.device), noise_images.to(self.device), full_masks.to(self.device)
 
                 generated_masks = self.generator(noise_images)
 
@@ -195,7 +205,7 @@ class GANTrainer:
 
                 # Update generator
                 fake_output_for_g = self.discriminator(torch.cat((generated_masks, full_masks), dim=1))
-                loss_g = self.loss_fn_d(fake_output_for_g, real_labels)
+                loss_g = self.loss_fn_g(generated_masks, full_masks) + 0.1 * self.loss_fn_d(fake_output_for_g, real_labels)
 
                 self.optimizer_g.zero_grad()
                 loss_g.backward()
@@ -215,3 +225,101 @@ class GANTrainer:
     def _save_models(self):
         torch.save(self.generator.state_dict(), os.path.join(self.output_path, f"generator.pth"))
         torch.save(self.discriminator.state_dict(), os.path.join(self.output_path, f"discriminator.pth"))
+
+class GANTester:
+    def __init__(self, test_image_path, test_mask_path, generator_path, batch_size=4):
+        """
+        Инициализация тестера
+        """
+        self.test_image_path = test_image_path
+        self.test_mask_path = test_mask_path
+        self.generator_path = generator_path
+        self.batch_size = batch_size
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._initialize_transforms()
+        self._prepare_test_data()
+        self._load_generator()
+
+    def _initialize_transforms(self):
+        """
+        Определение трансформаций
+        """
+        self.image_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        self.mask_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor()
+        ])
+
+    def _prepare_test_data(self):
+        """
+        Подготовка тестового датасета
+        """
+        test_image_patches = [os.path.join(self.test_image_path, f) for f in os.listdir(self.test_image_path)]
+        test_mask_patches = [os.path.join(self.test_mask_path, f) for f in os.listdir(self.test_mask_path)]
+        self.test_dataset = TIFDataset(test_image_patches, test_mask_patches,
+                                        image_transform=self.image_transform,
+                                        mask_transform=self.mask_transform)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
+
+    def _load_generator(self):
+        """
+        Загрузка модели генератора
+        """
+        self.generator = smp.Unet(
+            encoder_name="resnet50",
+            encoder_weights="imagenet",
+            in_channels=3,
+            classes=1
+        ).to(self.device)
+        if os.path.exists(self.generator_path):
+            self.generator.load_state_dict(torch.load(self.generator_path, map_location=self.device))
+            print(f"Генератор успешно загружен с {self.generator_path}.")
+        else:
+            raise FileNotFoundError(f"Файл генератора {self.generator_path} не найден.")
+
+    def visualize_results(self):
+        """
+        Визуализация результатов на тестовых данных
+        """
+        self.generator.eval()
+        with torch.no_grad():
+            for batch_idx, (full_images, noise_images, full_masks) in enumerate(self.test_dataloader):
+                full_images, noise_images, full_masks = full_images.to(self.device), noise_images.to(self.device), full_masks.to(self.device)
+                generated_masks = self.generator(noise_images)
+
+                plt.figure(figsize=(20, 5))
+                for i in range(min(5, len(full_images))):
+                    plt.subplot(5, 4, i * 4 + 1)
+                    plt.title("Original Image")
+                    plt.imshow(self._denormalize(full_images[i].cpu(), mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]).permute(1, 2, 0).clip(0, 1))
+                    plt.axis("off")
+
+                    plt.subplot(5, 4, i * 4 + 2)
+                    plt.title("Input with Noise")
+                    plt.imshow(self._denormalize(noise_images[i].cpu(), mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]).permute(1, 2, 0).clip(0, 1))
+                    plt.axis("off")
+
+                    plt.subplot(5, 4, i * 4 + 3)
+                    plt.title("Full Mask")
+                    plt.imshow(full_masks[i, 0].cpu().numpy(), cmap="gray")
+                    plt.axis("off")
+
+                    plt.subplot(5, 4, i * 4 + 4)
+                    plt.title("Generated Mask")
+                    plt.imshow((generated_masks[i, 0].cpu().numpy() > 0.5).astype(int), cmap="gray")
+                    plt.axis("off")
+
+                plt.show()
+                break  # Для визуализации берём только первую batch
+
+    def _denormalize(self, tensor, mean, std):
+        """
+        Деинормализация тензора для визуализации
+        """
+        for t, m, s in zip(tensor, mean, std):
+            t.mul_(s).add_(m)
+        return tensor
