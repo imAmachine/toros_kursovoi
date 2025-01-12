@@ -37,7 +37,7 @@ class GANTrainer:
             transforms.Resize((TRANSFORM_IMAGE_SIZE, TRANSFORM_IMAGE_SIZE)),
             transforms.ToTensor()
         ])
-
+    
     def _prepare_data(self):
         image_patches = [os.path.join(self.image_path, f) for f in os.listdir(self.image_path)]
         mask_patches = [os.path.join(self.mask_path, f) for f in os.listdir(self.mask_path)]
