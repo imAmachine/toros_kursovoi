@@ -2,7 +2,7 @@ import os
 import torch
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
-from generator.tiff_dataset import TIFDataset
+from generator.data_load.tiff_dataset import TIFDataset
 import segmentation_models_pytorch as smp
 import matplotlib.pyplot as plt
 
