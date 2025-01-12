@@ -14,7 +14,6 @@ class ImageMaskSlicer:
 
         Image.MAX_IMAGE_PIXELS = None
 
-        # Создаём выходные папки
         os.makedirs(self.output_image_dir, exist_ok=True)
         os.makedirs(self.output_mask_dir, exist_ok=True)
 
