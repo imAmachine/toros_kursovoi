@@ -2,7 +2,7 @@ import os
 from generator.tifs_preprocessing.slice_image import ImageMaskSlicer
 from generator.gan_arch.gan_generation import GANTrainer
 from generator.gan_arch.gan_tester import GANTester
-from settings import ANALYSIS_OUTPUT_FOLDER_PATH, SOURCE_IMAGES_FOLDER_PATH, MASKS_FOLDER_PATH
+from settings import ANALYSIS_OUTPUT_FOLDER_PATH, GEODATA_PATH, SOURCE_IMAGES_FOLDER_PATH, MASKS_FOLDER_PATH
 
 
 # КОНСТАНТЫ ПУТЕЙ
@@ -13,20 +13,21 @@ TEST_MASKS_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'zzz/test_mas
 WEIGHTS_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'model_weight')
 GENERATOR_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'model_weight', 'generator.pth')
 
-def slicer_image(images_path, masks_path, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH):
+def slicer_image(grid_size, target_tiles_count):
     slicer = ImageMaskSlicer(
-        image_dir=images_path,
-        mask_dir=masks_path,
+        geo_data_path=GEODATA_PATH,
+        image_dir=SOURCE_IMAGES_FOLDER_PATH,
+        mask_dir=MASKS_FOLDER_PATH,
         output_image_dir=OUTPUT_IMAGES_FOLDER_PATH,
         output_mask_dir=OUTPUT_MASKS_FOLDER_PATH,
-        tile_size=3273,
-        stride=455
+        grid_size=grid_size,
+        target_tiles_count=target_tiles_count
     )
     slicer.slice_all()
 
 def main():
-    slicer_image(SOURCE_IMAGES_FOLDER_PATH, MASKS_FOLDER_PATH, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH)
-
+    slicer_image(50, 300)
+        
     # trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=5, batch_size=4, lr_g=0.0001, lr_d=0.0001, load_weights=True)
     # trainer.train()
 

@@ -10,6 +10,7 @@ import segmentation_models_pytorch as smp
 
 from ..data_load.tiff_dataset import TIFDataset
 
+TRANSFORM_IMAGE_SIZE = 448
 
 class GANTrainer:
     def __init__(self, image_path, mask_path, output_path, epochs, batch_size, lr_g, lr_d, load_weights=True):
@@ -28,17 +29,13 @@ class GANTrainer:
 
     def _initialize_transforms(self):
         self.image_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((TRANSFORM_IMAGE_SIZE, TRANSFORM_IMAGE_SIZE)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         self.mask_transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((TRANSFORM_IMAGE_SIZE, TRANSFORM_IMAGE_SIZE)),
             transforms.ToTensor()
-        ])
-
-        self.fid_transform = transforms.Compose([
-            transforms.Resize((299, 299))
         ])
 
     def _prepare_data(self):
