@@ -26,13 +26,13 @@ def slicer_image(grid_size, target_tiles_count):
     slicer.slice_all()
 
 def main():
-    slicer_image(50, 300)
+    # slicer_image(50, 300)
         
-    # trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=5, batch_size=4, lr_g=0.0001, lr_d=0.0001, load_weights=True)
+    # trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=1, batch_size=20, target_image_size=448, lr_g=0.0001, lr_d=0.0001, load_weights=True)
     # trainer.train()
 
-    # tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
-    # tester.visualize_results()
+    tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
+    tester.visualize_results()
 
 if __name__ == "__main__":
     main()
