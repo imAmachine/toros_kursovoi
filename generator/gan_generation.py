@@ -8,6 +8,7 @@ from PIL import Image
 import segmentation_models_pytorch as smp
 import matplotlib.pyplot as plt
 from torchmetrics.image.fid import FrechetInceptionDistance
+from torchvision.models.segmentation import deeplabv3_resnet50
 
 def dice_loss(pred, target):
     smooth = 1.0
@@ -95,23 +96,7 @@ class GANTrainer:
             classes=1  # Генератор создаёт одноканальную бинарную маску
         ).to(self.device)
 
-        self.discriminator = torch.nn.Sequential(
-            torch.nn.Conv2d(2, 64, kernel_size=4, stride=2, padding=1),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(128),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(256),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(512),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Conv2d(512, 1, kernel_size=4, stride=1, padding=0),
-            torch.nn.AdaptiveAvgPool2d((1, 1)),
-            torch.nn.Flatten(),
-            torch.nn.Sigmoid()
-        ).to(self.device)
+        self.discriminator = deeplabv3_resnet50(pretrained=False, num_classes=1).to(self.device)
 
         self.optimizer_g = torch.optim.Adam(self.generator.parameters(), lr=self.lr_g)
         self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(), lr=self.lr_d)

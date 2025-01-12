@@ -9,8 +9,8 @@ def slicer_image(images_path, masks_path, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASK
         mask_dir=masks_path,
         output_image_dir=OUTPUT_IMAGES_FOLDER_PATH,
         output_mask_dir=OUTPUT_MASKS_FOLDER_PATH,
-        tile_size=4096,
-        stride=1024
+        tile_size=3273,
+        stride=455
     )
     slicer.slice_all()
 
