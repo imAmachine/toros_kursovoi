@@ -66,7 +66,7 @@ class ImageMaskSlicer:
 
         for image_path in image_files:
             base_name = os.path.basename(image_path).replace("_image.tif", "")
-            
+
             if base_name not in mask_dict:
                 print(f"Warning: No matching mask found for {os.path.basename(image_path)}")
                 continue
@@ -74,7 +74,7 @@ class ImageMaskSlicer:
             mask_path = mask_dict[base_name]
 
             print(f"Processing {os.path.basename(image_path)} with mask {os.path.basename(mask_path)}")
-            
+
             try:
                 tiff_name = os.path.basename(image_path)
                 tile_params = self.calc_tiles_data_by_tif(tiff_name)
