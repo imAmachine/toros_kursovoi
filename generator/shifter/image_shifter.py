@@ -23,6 +23,19 @@ class ImageShifter:
         shifted_image = torch.randn_like(image)  # Белый шум
         shifted_mask = torch.rand_like(mask)
 
+        x_start_src, x_end_src, x_start_tgt, x_end_tgt, y_start_src, y_end_src, y_start_tgt, y_end_tgt = self._shift(x_shift, y_shift, x_shift_percent, y_shift_percent)
+
+        shifted_image[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = image[:, y_start_src:y_end_src, x_start_src:x_end_src]
+        shifted_mask[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = mask[:, y_start_src:y_end_src, x_start_src:x_end_src]
+
+        nodata_mask = shifted_image == 0  # Предполагаем, что 0 — это значение nodata
+        shifted_image[nodata_mask] = torch.randn_like(shifted_image[nodata_mask])
+        shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask])
+
+        shifted_image = transforms.Normalize(mean=[0.5], std=[0.5])(shifted_image)
+        return shifted_image, shifted_mask
+
+    def _shift(self, x_shift, y_shift, x_shift_percent, y_shift_percent):
         if x_shift_percent < 0:  # Сдвиг вправо
             x_start_src, x_end_src = 0, -x_shift
             x_start_tgt, x_end_tgt = x_shift, None
@@ -37,15 +50,7 @@ class ImageShifter:
             y_start_src, y_end_src = y_shift, None
             y_start_tgt, y_end_tgt = 0, -y_shift
 
-        shifted_image[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = image[:, y_start_src:y_end_src, x_start_src:x_end_src]
-        shifted_mask[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = mask[:, y_start_src:y_end_src, x_start_src:x_end_src]
-
-        nodata_mask = shifted_image == 0  # Предполагаем, что 0 — это значение nodata
-        shifted_image[nodata_mask] = torch.randn_like(shifted_image[nodata_mask])
-        shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask])
-
-        shifted_image = transforms.Normalize(mean=[0.5], std=[0.5])(shifted_image)
-        return shifted_image, shifted_mask
+        return x_start_src, x_end_src, x_start_tgt, x_end_tgt, y_start_src, y_end_src, y_start_tgt, y_end_tgt
 
     def merge_image(self, transformed_image, transformed_mask, generated_image, generated_mask, original_sizes, mask_sizes, x_shift_percent, y_shift_percent, OUTPUT_TEST_INFERENCE_FOLDER_PATH):
         generated_image_resized = F.interpolate(generated_image, size=(mask_sizes[1], mask_sizes[0]),
@@ -60,19 +65,7 @@ class ImageShifter:
         x_shift = int(mask_sizes[0] * abs(x_shift_percent) / 100)
         y_shift = int(mask_sizes[1] * abs(y_shift_percent) / 100)
 
-        if x_shift_percent < 0:  # Сдвиг вправо
-            x_start_src, x_end_src = 0, -x_shift
-            x_start_tgt, x_end_tgt = x_shift, None
-        else:  # Сдвиг влево
-            x_start_src, x_end_src = x_shift, None
-            x_start_tgt, x_end_tgt = 0, -x_shift
-
-        if y_shift_percent > 0:  # Сдвиг вниз
-            y_start_src, y_end_src = 0, -y_shift
-            y_start_tgt, y_end_tgt = y_shift, None
-        else:  # Сдвиг вверх
-            y_start_src, y_end_src = y_shift, None
-            y_start_tgt, y_end_tgt = 0, -y_shift
+        x_start_src, x_end_src, x_start_tgt, x_end_tgt, y_start_src, y_end_src, y_start_tgt, y_end_tgt = self._shift(x_shift, y_shift, x_shift_percent, y_shift_percent)
 
         combined_image = torch.zeros((mask_sizes[1] + y_shift, mask_sizes[0] + x_shift), device=self.device)
         combined_mask = torch.zeros((mask_sizes[1] + y_shift, mask_sizes[0] + x_shift), device=self.device)
