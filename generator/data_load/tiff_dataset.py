@@ -1,8 +1,10 @@
 import os
-from torchvision.transforms import ToTensor, transforms
 from torch.utils.data import Dataset
 from PIL import Image
 import torch
+import random
+
+from generator.shifter.image_shifter import ImageShifter
 
 
 class TIFDataset(Dataset):
@@ -20,6 +22,8 @@ class TIFDataset(Dataset):
         self.image_transform = image_transform
         self.mask_transform = mask_transform
         self.image_mask_pair_paths = []
+        
+        self.image_shifter = ImageShifter(448)
 
         # Собираем файлы из обеих директорий
         image_files = [f for f in os.listdir(image_dir)]
@@ -31,25 +35,34 @@ class TIFDataset(Dataset):
                 self.image_mask_pair_paths.append(name)
         self.noise_factor = noise_factor
 
-    def add_noise(self, tensor):
-        """Добавление гауссовского шума к тензору"""
-        noise = torch.randn_like(tensor) * self.noise_factor
-        return tensor + noise
-
+    def _get_rand_shift_coefs(self):
+        rnd = random()
+        horiz_dir = rnd.choice([-1, 1])
+        vert_dir = rnd.choice([-1, 1])
+        
+        horiz_shift_percent = rnd.choice(range(10, 16)) * horiz_dir
+        vert_shift_percent = rnd.choice(range(10, 16)) * vert_dir
+        
+        return horiz_shift_percent, vert_shift_percent
+    
     def __getitem__(self, idx):
         image_path = os.path.join(self.image_dir, self.image_mask_pair_paths[idx])
         mask_path = os.path.join(self.mask_dir, self.image_mask_pair_paths[idx])
 
         image = Image.open(image_path).convert("L")
         mask = Image.open(mask_path)
-
-        # Применяем трансформации
+        
+        # трансформации
         image = self.image_transform(image)
         mask = self.mask_transform(mask)
-
+        input_combined = torch.cat([image, mask])
+        
+        # сдвиг + гаусовский шум
+        horiz, vert = self._get_rand_shift_coefs()
+        shifted_img, shifted_mask = self.image_shifter.apply_shift(image, mask, x_shift_percent=horiz, y_shift_percent=vert)
+        
         # Создаем входные данные с шумом
-        input_combined = torch.cat([image, mask], dim=0)
-        combined_noisy_input = self.add_noise(input_combined)
+        combined_noisy_input = torch.cat([shifted_img, shifted_mask], dim=0)
 
         return combined_noisy_input, input_combined, mask
 
