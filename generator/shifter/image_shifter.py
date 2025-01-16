@@ -20,9 +20,9 @@ class ImageShifter:
         :param y_shift_percent: Сдвиг по оси Y (в процентах).
         :return: Сдвинутое изображение и маска.
         """
-        # Вычисление сдвига в пикселях
-        x_shift = int(image.shape[2] * x_shift_percent / 100)
-        y_shift = int(image.shape[1] * y_shift_percent / 100)
+
+        x_shift = int(image.shape[2] * abs(x_shift_percent) / 100)
+        y_shift = int(image.shape[1] * abs(y_shift_percent) / 100)
 
         # Создание пустых тензоров с шумом
         shifted_image = torch.empty_like(image).normal_(self.mean, self.stddev).to(self.device)
@@ -64,24 +64,19 @@ class ImageShifter:
         h, w = shape[1], shape[2]  # Размеры изображения
 
         if x_shift_percent < 0:  # Сдвиг вправо
-            x_start_src, x_end_src = 0, w - x_shift
-            x_start_tgt, x_end_tgt = x_shift, w
+            x_start_src, x_end_src = 0, -x_shift
+            x_start_tgt, x_end_tgt = x_shift, None
         else:  # Сдвиг влево
-            x_start_src, x_end_src = x_shift, w
-            x_start_tgt, x_end_tgt = 0, w - x_shift
+            x_start_src, x_end_src = x_shift, None
+            x_start_tgt, x_end_tgt = 0, -x_shift
 
         if y_shift_percent > 0:  # Сдвиг вниз
-            y_start_src, y_end_src = 0, h - y_shift
-            y_start_tgt, y_end_tgt = y_shift, h
+            y_start_src, y_end_src = 0, -y_shift
+            y_start_tgt, y_end_tgt = y_shift, None
         else:  # Сдвиг вверх
-            y_start_src, y_end_src = y_shift, h
-            y_start_tgt, y_end_tgt = 0, h - y_shift
+            y_start_src, y_end_src = y_shift, None
+            y_start_tgt, y_end_tgt = 0, -y_shift
 
-        # Проверяем, чтобы срезы не выходили за пределы и имели ненулевой размер
-        x_start_src, x_end_src = max(0, x_start_src), max(0, x_end_src)
-        y_start_src, y_end_src = max(0, y_start_src), max(0, y_end_src)
-        x_start_tgt, x_end_tgt = max(0, x_start_tgt), max(0, x_end_tgt)
-        y_start_tgt, y_end_tgt = max(0, y_start_tgt), max(0, y_end_tgt)
 
         return x_start_src, x_end_src, x_start_tgt, x_end_tgt, y_start_src, y_end_src, y_start_tgt, y_end_tgt
 

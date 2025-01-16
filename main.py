@@ -14,8 +14,8 @@ OUTPUT_IMAGES_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'slice_ana
 OUTPUT_MASKS_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'slice_analyze/output_masks')
 TEST_IMAGES_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'zzz/test_imag')
 TEST_MASKS_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'zzz/test_mask')
-TEST_INFERENCE_IMAGE_PATH = os.path.join(SOURCE_IMAGES_FOLDER_PATH, 'ridge_3_image.tif')
-TEST_INFERENCE_MASK_PATH = os.path.join(MASKS_FOLDER_PATH, 'ridge_3_mask.png')
+TEST_INFERENCE_IMAGE_PATH = os.path.join(SOURCE_IMAGES_FOLDER_PATH, 'ridge_2_image.tif')
+TEST_INFERENCE_MASK_PATH = os.path.join(MASKS_FOLDER_PATH, 'ridge_2_mask.png')
 OUTPUT_TEST_INFERENCE_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'inference')
 WEIGHTS_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'model_weight/weights')
 GENERATOR_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'model_weight/weights', 'generator.pth')
@@ -43,20 +43,20 @@ def gen_shift(image, mask, image_size, x_shift, y_shift):
     mask = Image.open(TEST_INFERENCE_MASK_PATH)
     
     os.makedirs(OUTPUT_TEST_INFERENCE_FOLDER_PATH, exist_ok=True)
-    generated_image, generated_mask = generator.generate(image, mask, 10, 0, OUTPUT_TEST_INFERENCE_FOLDER_PATH)
+    generated_image, generated_mask = generator.generate(image, mask, x_shift, y_shift, OUTPUT_TEST_INFERENCE_FOLDER_PATH)
 
-    # combined_image, combined_mask = shifter.merge_image(image, mask, 
-    #                                                     generated_image, generated_mask, 
-    #                                                     original_sizes=(448, 448), mask_sizes=(448, 448), 
-    #                                                     x_shift_percent=x_shift, y_shift_percent=y_shift,
-    #                                                     output_path=OUTPUT_TEST_INFERENCE_FOLDER_PATH)
+    combined_image, combined_mask = shifter.merge_image(image, mask,
+                                                        generated_image, generated_mask,
+                                                        original_sizes=[448, 448], mask_sizes=[448, 448],
+                                                        x_shift_percent=x_shift, y_shift_percent=y_shift,
+                                                        output_path=OUTPUT_TEST_INFERENCE_FOLDER_PATH)
 
-    # InferenceVisualizer.visualize(
-    #     original_image=image.cpu(),
-    #     original_mask=mask.cpu(),
-    #     combined_image=combined_image,
-    #     combined_mask=combined_mask
-    # )
+    InferenceVisualizer.visualize(
+        original_image=image.cpu(),
+        original_mask=mask.cpu(),
+        combined_image=combined_image,
+        combined_mask=combined_mask
+    )
 
 def main():
     # slicer_image(50, 300)
@@ -67,7 +67,7 @@ def main():
     # tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
     # tester.visualize_results()
 
-    gen_shift(TEST_INFERENCE_IMAGE_PATH, TEST_INFERENCE_MASK_PATH, 448, 10, 5)
+    gen_shift(TEST_INFERENCE_IMAGE_PATH, TEST_INFERENCE_MASK_PATH, 448, -10, -5)
 
 if __name__ == "__main__":
     main()
