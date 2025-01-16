@@ -61,13 +61,13 @@ def gen_shift(image_size, x_shift, y_shift):
 def main():
     # slicer_image(50, 300)
         
-    # trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=1, batch_size=8, target_image_size=448, lr_g=0.0001, lr_d=0.0001, load_weights=True)
-    # trainer.train()
+    trainer = GANTrainer(OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=1, batch_size=8, target_image_size=448, lr_g=0.0001, lr_d=0.00001, load_weights=True)
+    trainer.train()
 
     # tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
     # tester.visualize_results()
 
-    gen_shift(448, 10, 5)
+    # gen_shift(448, 10, 5)
 
 if __name__ == "__main__":
     main()

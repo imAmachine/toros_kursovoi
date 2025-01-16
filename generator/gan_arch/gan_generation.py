@@ -40,7 +40,7 @@ class GANTrainer:
         self.mask_transform = transforms.Compose([
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: (x > 0.1).float())  # Преобразование в бинарную маску
+            transforms.Lambda(lambda x: (x > 0.5).float())  # Преобразование в бинарную маску
         ])
 
     def _prepare_data(self):
@@ -100,6 +100,23 @@ class GANTrainer:
         for epoch in range(self.epochs):
             print(f"Epoch {epoch + 1}/{self.epochs}")
             progress_bar = tqdm(self.dataloader, desc=f"Training Epoch {epoch + 1}", leave=False)
+
+            dataset_iter = iter(self.dataloader)
+            samples = next(dataset_iter)
+
+            for i in range(4):  # Визуализация первых 4 примеров из батча
+                noisy_input = samples[0][i].cpu()
+                real_combined = samples[1][i].cpu()
+                mask = samples[2][i].cpu()
+
+                fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+                axs[0].imshow(noisy_input[0], cmap='gray')
+                axs[0].set_title('Noisy Input (Image + Mask)')
+                axs[1].imshow(real_combined[0], cmap='gray')
+                axs[1].set_title('Ground Truth Combined')
+                axs[2].imshow(mask[0], cmap='gray')
+                axs[2].set_title('Mask')
+                plt.show()
 
             for noisy_input, real_combined, original_mask in progress_bar:
                 noisy_input = noisy_input.to(self.device)
