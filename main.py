@@ -43,17 +43,17 @@ def gen_shift(image, mask, image_size, x_shift, y_shift):
     mask = Image.open(TEST_INFERENCE_MASK_PATH)
     
     os.makedirs(OUTPUT_TEST_INFERENCE_FOLDER_PATH, exist_ok=True)
-    generated_image, generated_mask = generator.generate(image, mask, x_shift, y_shift, OUTPUT_TEST_INFERENCE_FOLDER_PATH)
+    transformed_image, transformed_mask, generated_image, generated_mask, img_nodate = generator.generate(image, mask, x_shift, y_shift, OUTPUT_TEST_INFERENCE_FOLDER_PATH)
 
-    combined_image, combined_mask = shifter.merge_image(image, mask,
-                                                        generated_image, generated_mask,
+    combined_image, combined_mask = shifter.merge_image(transformed_image, transformed_mask,
+                                                        generated_image, generated_mask, img_nodate,
                                                         original_sizes=[448, 448], mask_sizes=[448, 448],
                                                         x_shift_percent=x_shift, y_shift_percent=y_shift,
                                                         output_path=OUTPUT_TEST_INFERENCE_FOLDER_PATH)
 
     InferenceVisualizer.visualize(
-        original_image=image.cpu(),
-        original_mask=mask.cpu(),
+        original_image=transformed_image.cpu(),
+        original_mask=transformed_mask.cpu(),
         combined_image=combined_image,
         combined_mask=combined_mask
     )
@@ -61,8 +61,8 @@ def gen_shift(image, mask, image_size, x_shift, y_shift):
 def main():
     # slicer_image(50, 300)
     gan_model = GANModel(target_image_size=448)
-    trainer = GANTrainer(gan_model, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=5, batch_size=16, lr_g=0.0001, lr_d=0.00001, load_weights=False)
-    trainer.train()
+    # trainer = GANTrainer(gan_model, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=5, batch_size=16, lr_g=0.0001, lr_d=0.00001, load_weights=False)
+    # trainer.train()
 
     # tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
     # tester.visualize_results()

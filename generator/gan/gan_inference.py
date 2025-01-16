@@ -40,6 +40,7 @@ class ImageGenerator:
         # Трансформации
         image_n = self.gan.image_transform(image)
         mask_n = self.gan.mask_transform(mask)
+        img_nodate = self.gan.image_transform_without_norm(image)
         
         img = to_pil_image(image_n.squeeze(0).cpu())
         img.save(f"{output_path}/image_n.png", format="PNG")
@@ -49,7 +50,7 @@ class ImageGenerator:
         
         # Сдвиг + шум
         img_shifter = ImageShifter(self.image_size)
-        shifted_img, shifted_mask = img_shifter.apply_shift(image_n, mask_n, horizontal_shift, vertical_shift)
+        shifted_img, shifted_mask = img_shifter.apply_shift(image_n, mask_n, horizontal_shift, vertical_shift, img_nodate)
         
         shifted_input = torch.cat([shifted_img, shifted_mask], dim=0).unsqueeze(0).to(self.device)
         
@@ -68,4 +69,4 @@ class ImageGenerator:
         generated_image_pil.save(f"{output_path}/generated_image.png", format="PNG")
         generated_mask_pil.save(f"{output_path}/generated_mask.png", format="PNG")
         
-        return generated_image, generated_mask
+        return image_n, mask_n, generated_image, generated_mask, img_nodate
