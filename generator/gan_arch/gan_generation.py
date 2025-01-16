@@ -39,6 +39,7 @@ class GANTrainer:
         self.mask_transform = transforms.Compose([
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5]),
             transforms.Lambda(lambda x: (x > 0.5).float())  # Преобразование в бинарную маску
         ])
 
@@ -58,7 +59,7 @@ class GANTrainer:
 
         self.optimizer_g = torch.optim.Adam(self.generator.parameters(), lr=self.lr_g)
         self.optimizer_d = torch.optim.Adam(self.discriminator.parameters(), lr=self.lr_d)
-        
+
         self.loss_fn_g = Dice()
         self.loss_fn_d = torch.nn.BCEWithLogitsLoss()
 
