@@ -14,32 +14,49 @@ class ImageShifter:
     def apply_shift(self, image, mask, x_shift_percent, y_shift_percent):
         """
         Создание сдвинутого изображения и маски с заполнением шумом.
-        :param image: Исходное изображение.
-        :param mask: Исходная маска.
+        :param image: Исходное изображение (тензор).
+        :param mask: Исходная маска (тензор).
         :param x_shift_percent: Сдвиг по оси X (в процентах).
         :param y_shift_percent: Сдвиг по оси Y (в процентах).
         :return: Сдвинутое изображение и маска.
         """
-        x_shift = min(int(image.shape[2] * abs(x_shift_percent) / 100), image.shape[2] - 1)
-        y_shift = min(int(image.shape[1] * abs(y_shift_percent) / 100), image.shape[1] - 1)
+        # Вычисление сдвига в пикселях
+        x_shift = int(image.shape[2] * x_shift_percent / 100)
+        y_shift = int(image.shape[1] * y_shift_percent / 100)
 
-        shifted_image = torch.empty_like(image).normal_(self.mean, self.stddev).to(self.device)  # Генерация гауссовского шума
-        shifted_mask = torch.rand_like(mask).to(self.device)
+        # Создание пустых тензоров с шумом
+        shifted_image = torch.empty_like(image).normal_(self.mean, self.stddev).to(self.device)
+        shifted_mask = torch.empty_like(mask).normal_(self.mean, self.stddev).to(self.device)
 
-        x_start_src, x_end_src, x_start_tgt, x_end_tgt, y_start_src, y_end_src, y_start_tgt, y_end_tgt = self._shift(
-            x_shift, y_shift, x_shift_percent, y_shift_percent, image.shape
-        )
+        # Вычисление новых границ
+        x_start_src, x_end_src = max(0, x_shift), min(image.shape[2], image.shape[2] + x_shift)
+        y_start_src, y_end_src = max(0, y_shift), min(image.shape[1], image.shape[1] + y_shift)
 
-        shifted_image[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = image[:, y_start_src:y_end_src, x_start_src:x_end_src]
-        shifted_mask[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = mask[:, y_start_src:y_end_src, x_start_src:x_end_src]
+        x_start_tgt, x_end_tgt = max(0, -x_shift), min(image.shape[2], image.shape[2] - x_shift)
+        y_start_tgt, y_end_tgt = max(0, -y_shift), min(image.shape[1], image.shape[1] - y_shift)
 
-        # Убедимся, что шум добавляется только там, где пиксели отсутствуют
-        nodata_mask = (shifted_image == 0)
-        shifted_image[nodata_mask] = torch.empty_like(shifted_image[nodata_mask]).normal_(self.mean, self.stddev).to(self.device)
-        shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask], device=self.device)
+        # Перенос пикселей
+        shifted_image[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
+            image[:, y_start_src:y_end_src, x_start_src:x_end_src]
+        shifted_mask[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
+            mask[:, y_start_src:y_end_src, x_start_src:x_end_src]
 
-        # Нормализация сдвинутого изображения в диапазон [0, 1]
+        # import matplotlib.pyplot as plt
+        # plt.figure(figsize=(10, 5))
+
+        # plt.subplot(1, 2, 1)
+        # plt.title("Shifted Image")
+        # plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
+
+        # plt.subplot(1, 2, 2)
+        # plt.title("Shifted Mask")
+        # plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
+
+        # plt.show()
+        
+        # Нормализация и корректировка значений
         shifted_image = torch.clamp(shifted_image, 0, 1)
+        shifted_mask = torch.clamp(shifted_mask, 0, 1)
 
         return shifted_image, shifted_mask
 
@@ -70,7 +87,6 @@ class ImageShifter:
 
 
     def merge_image(self, transformed_image, transformed_mask, generated_image, generated_mask, original_sizes, mask_sizes, x_shift_percent, y_shift_percent, output_path):
-        # Убедимся, что входные изображения — тензоры
         if not isinstance(transformed_image, torch.Tensor):
             transformed_image = ToTensor()(transformed_image).to(self.device)
         if not isinstance(transformed_mask, torch.Tensor):

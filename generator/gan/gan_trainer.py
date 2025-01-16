@@ -146,6 +146,5 @@ class GANTrainer:
         self._save_models()
 
     def _save_models(self):
-        weights_dir = os.path.join(self.output_path, 'weights/')
-        torch.save(self.model.generator.state_dict(), os.path.join(weights_dir, "generator.pth"))
-        torch.save(self.model.discriminator.state_dict(), os.path.join(weights_dir, "discriminator.pth"))
+        torch.save(self.model.generator.state_dict(), os.path.join(self.output_path, "generator.pth"))
+        torch.save(self.model.discriminator.state_dict(), os.path.join(self.output_path, "discriminator.pth"))

@@ -28,8 +28,7 @@ class GANModel:
         self.mask_transform = transforms.Compose([
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.Grayscale(),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: (x > 0.5).float())
+            transforms.ToTensor()
         ])
 
     def denormalize(self, tensor, mean, std):

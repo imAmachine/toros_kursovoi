@@ -41,6 +41,12 @@ class ImageGenerator:
         image_n = self.gan.image_transform(image)
         mask_n = self.gan.mask_transform(mask)
         
+        img = to_pil_image(image_n.squeeze(0).cpu())
+        img.save(f"{output_path}/image_n.png", format="PNG")
+        
+        img = to_pil_image(mask_n.squeeze(0).cpu())
+        img.save(f"{output_path}/mask_n.png", format="PNG")
+        
         # Сдвиг + шум
         img_shifter = ImageShifter(self.image_size)
         shifted_img, shifted_mask = img_shifter.apply_shift(image_n, mask_n, horizontal_shift, vertical_shift)

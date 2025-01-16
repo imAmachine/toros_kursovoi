@@ -36,12 +36,11 @@ class TIFDataset(Dataset):
         self.noise_factor = noise_factor
 
     def _get_rand_shift_coefs(self):
-        rnd = random()
-        horiz_dir = rnd.choice([-1, 1])
-        vert_dir = rnd.choice([-1, 1])
+        horiz_dir = random.choice([-1, 1])
+        vert_dir = random.choice([-1, 1])
         
-        horiz_shift_percent = rnd.choice(range(10, 16)) * horiz_dir
-        vert_shift_percent = rnd.choice(range(10, 16)) * vert_dir
+        horiz_shift_percent = random.choice(range(10, 16)) * horiz_dir
+        vert_shift_percent = random.choice(range(10, 16)) * vert_dir
         
         return horiz_shift_percent, vert_shift_percent
     
