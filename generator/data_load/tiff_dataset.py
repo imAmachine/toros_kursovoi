@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 import torch
 
+
 class TIFDataset(Dataset):
     def __init__(self, image_dir, mask_dir, image_transform=None, mask_transform=None, noise_factor=0.1):
         """
@@ -38,20 +39,20 @@ class TIFDataset(Dataset):
     def __getitem__(self, idx):
         image_path = os.path.join(self.image_dir, self.image_mask_pair_paths[idx])
         mask_path = os.path.join(self.mask_dir, self.image_mask_pair_paths[idx])
-        
+
         image = Image.open(image_path).convert("L")
-        mask = Image.open(mask_path).convert("L")
+        mask = Image.open(mask_path)
 
         # Применяем трансформации
         image = self.image_transform(image)
         mask = self.mask_transform(mask)
-        
+
         # Создаем входные данные с шумом
         input_combined = torch.cat([image, mask], dim=0)
         combined_noisy_input = self.add_noise(input_combined)
-        
+
         return combined_noisy_input, input_combined, mask
-    
+
     def __len__(self):
         """Возвращает количество пар изображений в датасете"""
         return len(self.image_mask_pair_paths)
