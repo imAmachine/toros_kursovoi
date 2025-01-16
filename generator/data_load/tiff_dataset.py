@@ -84,8 +84,10 @@ class TIFDataset(Dataset):
         noise_area_mask = (mask_array == 2)
 
         # Генерация случайного шума (можно адаптировать под вашу задачу)
-        noise_image = np.random.randint(0, 256, image_array.shape, dtype=np.uint8)
-        noise_mask = np.random.randint(0, 256, mask_array.shape, dtype=np.uint8)
+        image_tensor = torch.tensor(image_array)
+        mask_tensor = torch.tensor(mask_array)
+        noise_image = torch.randint(0, 256, image_tensor.shape, dtype=torch.uint8)
+        noise_mask = torch.randint(0, 256, mask_tensor.shape, dtype=torch.uint8)
 
         # Применяем шум только в тех областях, где были нули
         image_array[noise_area_image] = noise_image[noise_area_image]
@@ -95,30 +97,33 @@ class TIFDataset(Dataset):
         full_image_with_noise = Image.fromarray(image_array)
         full_mask_with_noise = Image.fromarray(mask_array)
 
+        shifted_image_normalized = self.image_transform(full_image_with_noise)
+        shifted_mask_normalized = self.mask_transform(full_mask_with_noise)
+        
+        image_normalized = self.image_transform(image)
+        mask_normalized = self.mask_transform(mask)
+        
         # import matplotlib.pyplot as plt
         # plt.figure(figsize=(10, 5))
 
         # plt.subplot(1, 2, 1)
         # plt.title("Shifted Image")
-        # plt.imshow(full_image_with_noise, cmap="gray")
+        # plt.imshow(full_image, cmap="gray")
 
         # plt.subplot(1, 2, 2)
         # plt.title("Shifted Mask")
-        # plt.imshow(full_mask_with_noise, cmap="gray")
+        # plt.imshow(full_image_with_noise, cmap="gray")
 
         # plt.show()
         
         # трансформации
-        shifted_image_normalized = self.image_transform(full_image_with_noise)
-        shifted_mask_normalized = self.mask_transform(full_mask_with_noise)
-        
         # from torchvision.transforms.functional import to_pil_image
         # import matplotlib.pyplot as plt
         # plt.figure(figsize=(10, 5))
 
         # plt.subplot(1, 2, 1)
         # plt.title("Shifted Image")
-        # plt.imshow(image, cmap="gray")
+        # plt.imshow(to_pil_image(image_normalized), cmap="gray")
 
         # plt.subplot(1, 2, 2)
         # plt.title("Shifted Mask")
@@ -126,10 +131,10 @@ class TIFDataset(Dataset):
 
         # plt.show()
         
+        combined_real_input = torch.cat([image_normalized, mask_normalized], dim=0)
         shifted_noisy_combined = torch.cat([shifted_image_normalized, shifted_mask_normalized])
-        combined_real_input = torch.cat([image, mask], dim=0)
 
-        return combined_real_input, shifted_noisy_combined, mask
+        return combined_real_input, shifted_noisy_combined, mask_normalized
 
     def __len__(self):
         """Возвращает количество пар изображений в датасете"""

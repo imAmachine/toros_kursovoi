@@ -123,10 +123,7 @@ class GANTrainer:
                 loss_g_adv = self.loss_fn_d(fake_output_g, torch.ones_like(fake_output_g))
 
                 # Потери на маску
-                loss_g_preserve = F.binary_cross_entropy(
-                    generated_mask * original_mask,
-                    original_mask
-                )
+                loss_g_preserve = F.l1_loss(generated_mask * original_mask, original_mask)
 
                 loss_g = loss_g_adv + 10.0 * loss_g_preserve
 
@@ -140,6 +137,9 @@ class GANTrainer:
                     "Loss_G": loss_g.item(),
                     "Loss_Preserve": loss_g_preserve.item()
                 })
+                torch.nn.utils.clip_grad_norm_(self.model.generator.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(self.model.discriminator.parameters(), max_norm=1.0)
+                
             self._save_models() # сохранение каждую эпоху
 
         # Сохранение моделей после обучения
