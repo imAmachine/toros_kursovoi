@@ -104,7 +104,7 @@ class GANTrainer:
                 # plt.figure(figsize=(10, 5))
 
                 # plt.title("Shifted Image")
-                # plt.imshow(noisy_input[0][1].cpu().detach().numpy(), cmap="gray")
+                # plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
 
                 # plt.show()
                 
