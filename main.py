@@ -60,14 +60,11 @@ def gen_shift(image, mask, image_size, x_shift, y_shift):
 
 def main():
     # slicer_image(50, 300)
-    gan_model = GANModel(target_image_size=448)
-    trainer = GANTrainer(gan_model, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=30, batch_size=16, lr_g=0.00015, lr_d=0.000001, load_weights=True)
-    trainer.train()
+    # gan_model = GANModel(target_image_size=448)
+    # trainer = GANTrainer(gan_model, OUTPUT_IMAGES_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH, WEIGHTS_PATH, epochs=30, batch_size=16, lr_g=0.00015, lr_d=0.000001, load_weights=True)
+    # trainer.train()
 
-    # tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
-    # tester.visualize_results()
-
-    gen_shift(TEST_INFERENCE_IMAGE_PATH, TEST_INFERENCE_MASK_PATH, 448, 10, 5)
+    gen_shift(TEST_INFERENCE_IMAGE_PATH, TEST_INFERENCE_MASK_PATH, 448, 1, 1)
 
 if __name__ == "__main__":
     main()

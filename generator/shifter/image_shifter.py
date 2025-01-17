@@ -1,6 +1,5 @@
 from torchvision.transforms.functional import to_pil_image
 import torch
-from torchvision.transforms import transforms
 import torch.nn.functional as F
 from torchvision.transforms import ToTensor
 from ..gan.gan_arch import GANModel

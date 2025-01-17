@@ -7,7 +7,6 @@ from ..data_load.tiff_dataset import TIFDataset
 from .gan_arch import GANModel
 import segmentation_models_pytorch as smp
 from tqdm import tqdm
-import os
 
 
 class GANTrainer:

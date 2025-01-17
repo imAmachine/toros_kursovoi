@@ -1,11 +1,5 @@
-from PIL import Image
 import torch
-import segmentation_models_pytorch as smp
-import os
 import logging
-import torch.nn.functional as F
-import numpy as np
-from torchvision.transforms import ToTensor
 
 from .gan_arch import GANModel
 from ..shifter.image_shifter import ImageShifter

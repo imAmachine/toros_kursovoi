@@ -1,9 +1,6 @@
-import os
 import torch
 from torchvision.transforms import transforms
-from torchmetrics.classification import Dice
 import segmentation_models_pytorch as smp
-import os
 
 
 class GANModel:

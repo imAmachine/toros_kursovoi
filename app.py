@@ -1,15 +1,10 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
-import torch
 from torchvision.transforms import ToTensor
 from torchvision.transforms.functional import to_pil_image
-from generator.gan.gan_arch import GANModel
 from generator.gan.gan_inference import ImageGenerator
-from generator.gan.gan_trainer import GANTrainer
-from generator.tifs_preprocessing.slice_image import ImageMaskSlicer
 from generator.shifter.image_shifter import ImageShifter
-from generator.visualize.inference_visualizer import InferenceVisualizer
 import os
 from settings import ANALYSIS_OUTPUT_FOLDER_PATH
 
