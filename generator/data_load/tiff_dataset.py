@@ -82,7 +82,7 @@ class TIFDataset(Dataset):
             y_start_src = 0
 
         full_image = Image.new("L", (image.width, image.height), 0)
-        full_mask = Image.new("L", (mask.width, mask.height), 0)
+        full_mask = Image.new("L", (mask.width, mask.height), 2)
 
         full_image.paste(cropped_image, (x_start_src, y_start_src))
         full_mask.paste(cropped_mask, (x_start_src, y_start_src))
@@ -91,12 +91,12 @@ class TIFDataset(Dataset):
         mask_array = np.array(full_mask)
 
         noise_area_image = (image_array == 0)
-        noise_area_mask = (mask_array == 0)
+        noise_area_mask = (mask_array == 2)
 
         image_tensor = torch.tensor(image_array)
         mask_tensor = torch.tensor(mask_array)
         noise_image = torch.randint(0, 256, image_tensor.shape, dtype=torch.uint8)
-        noise_mask = torch.randint(0, 2, mask_tensor.shape, dtype=torch.uint8)
+        noise_mask = torch.randint(0, 256, mask_tensor.shape, dtype=torch.uint8)
 
         image_array[noise_area_image] = noise_image[noise_area_image]
         mask_array[noise_area_mask] = noise_mask[noise_area_mask]
@@ -106,7 +106,7 @@ class TIFDataset(Dataset):
 
         shifted_image_normalized = image_transform(full_image_with_noise)
         shifted_mask_normalized = mask_transform(full_mask_with_noise)
-
+        
         return shifted_image_normalized, shifted_mask_normalized
 
     def __getitem__(self, idx):
@@ -126,7 +126,7 @@ class TIFDataset(Dataset):
         
         combined_real_input = torch.cat([image_normalized, mask_normalized], dim=0)
         shifted_noisy_combined = torch.cat([shifted_image_normalized, shifted_mask_normalized])
-
+        
         return shifted_noisy_combined, combined_real_input, mask_normalized
 
     def __len__(self):
