@@ -100,13 +100,13 @@ class GANTrainer:
                 generated_combined = self.model.generator(noisy_input)
                 generated_mask = generated_combined[:, 1:2, :, :]
 
-                import matplotlib.pyplot as plt
-                plt.figure(figsize=(10, 5))
+                # import matplotlib.pyplot as plt
+                # plt.figure(figsize=(10, 5))
 
-                plt.title("Shifted Image")
-                plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
+                # plt.title("Shifted Image")
+                # plt.imshow(noisy_input[0][1].cpu().detach().numpy(), cmap="gray")
 
-                plt.show()
+                # plt.show()
                 
                 # Обучение дискриминатора
                 real_output = self.model.discriminator(real_combined)
