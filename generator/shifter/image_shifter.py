@@ -4,6 +4,7 @@ from torchvision.transforms import transforms
 import torch.nn.functional as F
 from torchvision.transforms import ToTensor
 from ..gan.gan_arch import GANModel
+from ..data_load.tiff_dataset import TIFDataset
 
 class ImageShifter:
     def __init__(self, image_size):
@@ -13,7 +14,7 @@ class ImageShifter:
         self.stddev = 0.1  # Стандартное отклонение шума
         self.gan = GANModel(target_image_size=image_size)
 
-    def apply_shift(self, image, mask, x_shift_percent, y_shift_percent, img_nodate):
+    def apply_shift(self, image, mask, image_transform, mask_transform, x_shift_percent, y_shift_percent, img_nodate, image_n):
         """
         Создание сдвинутого изображения и маски с заполнением шумом.
         :param image: Исходное изображение (тензор).
@@ -22,42 +23,50 @@ class ImageShifter:
         :param y_shift_percent: Сдвиг по оси Y (в процентах).
         :return: Сдвинутое изображение и маска.
         """
-        x_shift = int(image.shape[2] * abs(x_shift_percent) / 100)
-        y_shift = int(image.shape[1] * abs(y_shift_percent) / 100)
+
+        image_tensor = ToTensor()(image).unsqueeze(0)  # Добавляем размер батча
+        image_tensor = F.interpolate(image_tensor, size=(mask.size[1], mask.size[0]), mode="bilinear").squeeze(0)
+        image_pil = to_pil_image(image_tensor)
+
+        shifted_image, shifted_mask = TIFDataset.preprocess(image_pil, mask, image_transform, mask_transform,
+                                                            x_shift_percent, y_shift_percent)
+
+        x_shift = int(image_n.shape[2] * abs(x_shift_percent) / 100)
+        y_shift = int(image_n.shape[1] * abs(y_shift_percent) / 100)
 
         # Создание пустых тензоров с шумом
-        shifted_image = torch.randn_like(image).to(self.device)
-        shifted_mask = torch.rand_like(mask).to(self.device)
+        # shifted_image = torch.randn_like(image).to(self.device)
+        # shifted_mask = torch.rand_like(mask).to(self.device)
         shifted_img = torch.randn_like(img_nodate).to(self.device)
-
-
+        #
+        #
         x_start_src, x_end_src, x_start_tgt, x_end_tgt, y_start_src, y_end_src, y_start_tgt, y_end_tgt = self._shift(x_shift, y_shift, x_shift_percent, y_shift_percent)
 
         # Перенос пикселей
-        shifted_image[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
-            image[:, y_start_src:y_end_src, x_start_src:x_end_src]
-        shifted_mask[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
-            mask[:, y_start_src:y_end_src, x_start_src:x_end_src]
-
+        # shifted_image[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
+        #     image[:, y_start_src:y_end_src, x_start_src:x_end_src]
+        # shifted_mask[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
+        #     mask[:, y_start_src:y_end_src, x_start_src:x_end_src]
+        #
         shifted_img[:, y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = \
             img_nodate[:, y_start_src:y_end_src, x_start_src:x_end_src]
 
         nodata_mask = shifted_img == 0  # Предполагаем, что 0 — это значение nodata
-        shifted_image[nodata_mask] = torch.randn_like(shifted_image[nodata_mask])
-        shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask])
+        # shifted_image[nodata_mask] = torch.randn_like(shifted_image[nodata_mask])
+        # shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask])
 
-        # import matplotlib.pyplot as plt
-        # plt.figure(figsize=(10, 5))
-        #
-        # plt.subplot(1, 2, 1)
-        # plt.title("Shifted Image")
-        # plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
-        #
-        # plt.subplot(1, 2, 2)
-        # plt.title("Shifted Mask")
-        # plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
-        #
-        # plt.show()
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.title("Shifted Image")
+        plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
+
+        plt.subplot(1, 2, 2)
+        plt.title("Shifted Mask")
+        plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
+
+        plt.show()
 
         return shifted_image, shifted_mask
 

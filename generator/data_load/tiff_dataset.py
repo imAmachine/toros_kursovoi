@@ -5,8 +5,6 @@ import torch
 import random
 import numpy as np
 
-from generator.shifter.image_shifter import ImageShifter
-
 
 class TIFDataset(Dataset):
     def __init__(self, image_dir, mask_dir, image_transform=None, mask_transform=None, noise_factor=0.1):
@@ -23,8 +21,6 @@ class TIFDataset(Dataset):
         self.image_transform = image_transform
         self.mask_transform = mask_transform
         self.image_mask_pair_paths = []
-        
-        self.image_shifter = ImageShifter(448)
 
         # Собираем файлы из обеих директорий
         image_files = [f for f in os.listdir(image_dir)]
@@ -103,6 +99,7 @@ class TIFDataset(Dataset):
         # Преобразуем обратно в изображение
         full_image_with_noise = Image.fromarray(image_array)
         full_mask_with_noise = Image.fromarray(mask_array)
+        print(full_image_with_noise.size, full_mask_with_noise.size)
 
         shifted_image_normalized = image_transform(full_image_with_noise)
         shifted_mask_normalized = mask_transform(full_mask_with_noise)

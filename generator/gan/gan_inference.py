@@ -3,6 +3,9 @@ import torch
 import segmentation_models_pytorch as smp
 import os
 import logging
+import torch.nn.functional as F
+import numpy as np
+from torchvision.transforms import ToTensor
 
 from .gan_arch import GANModel
 from ..shifter.image_shifter import ImageShifter
@@ -38,19 +41,14 @@ class ImageGenerator:
         :return: Сгенерированное изображение и маска.
         """
         # Трансформации
+        img_nodate = self.gan.image_transform_without_norm(image)
+
         image_n = self.gan.image_transform(image)
         mask_n = self.gan.mask_transform(mask)
-        img_nodate = self.gan.image_transform_without_norm(image)
-        
-        img = to_pil_image(image_n.squeeze(0).cpu())
-        img.save(f"{output_path}/image_n.png", format="PNG")
-        
-        img = to_pil_image(mask_n.squeeze(0).cpu())
-        img.save(f"{output_path}/mask_n.png", format="PNG")
         
         # Сдвиг + шум
         img_shifter = ImageShifter(self.image_size)
-        shifted_img, shifted_mask = img_shifter.apply_shift(image_n, mask_n, horizontal_shift, vertical_shift, img_nodate)
+        shifted_img, shifted_mask = img_shifter.apply_shift(image, mask, self.gan.image_transform, self.gan.mask_transform, horizontal_shift, vertical_shift, img_nodate, image_n)
         
         shifted_input = torch.cat([shifted_img, shifted_mask], dim=0).unsqueeze(0).to(self.device)
         
