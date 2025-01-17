@@ -44,18 +44,19 @@ class TIFDataset(Dataset):
         vert_shift_percent = random.choice(range(10, 16)) * vert_dir
         
         return horiz_shift_percent, vert_shift_percent
-    
-    def __getitem__(self, idx):
-        image_path = os.path.join(self.image_dir, self.image_mask_pair_paths[idx])
-        mask_path = os.path.join(self.mask_dir, self.image_mask_pair_paths[idx])
 
-        image = Image.open(image_path).convert("L")
-        mask = Image.open(mask_path)
-
-        # Сдвиговые коэффициенты
-        horiz, vert = self._get_rand_shift_coefs()
-        shift_horiz = int(image.width * (horiz / 100))
-        shift_vert = int(image.height * (vert / 100))
+    def preprocess(self, image, mask, horiz_shift_percent=0, vert_shift_percent=0):
+        """
+        Выполняет предобработку изображения и маски (сдвиг, добавление шума).
+        
+        :param image: Входное изображение (PIL Image).
+        :param mask: Входная маска (PIL Image).
+        :param horiz_shift_percent: Процент горизонтального сдвига.
+        :param vert_shift_percent: Процент вертикального сдвига.
+        :return: Предобработанные изображения и маски (с нормализацией).
+        """
+        shift_horiz = int(image.width * (horiz_shift_percent / 100))
+        shift_vert = int(image.height * (vert_shift_percent / 100))
 
         # Рассчитываем координаты для кропа
         x_start_src = max(0, shift_horiz)
@@ -104,6 +105,20 @@ class TIFDataset(Dataset):
 
         shifted_image_normalized = self.image_transform(full_image_with_noise)
         shifted_mask_normalized = self.mask_transform(full_mask_with_noise)
+
+        return shifted_image_normalized, shifted_mask_normalized
+
+    def __getitem__(self, idx):
+        image_path = os.path.join(self.image_dir, self.image_mask_pair_paths[idx])
+        mask_path = os.path.join(self.mask_dir, self.image_mask_pair_paths[idx])
+
+        image = Image.open(image_path).convert("L")
+        mask = Image.open(mask_path)
+
+        # Сдвиговые коэффициенты
+        horiz, vert = self._get_rand_shift_coefs()
+
+        shifted_image_normalized, shifted_mask_normalized = self.preprocess(image, mask, horiz, vert)
         
         image_normalized = self.image_transform(image)
         mask_normalized = self.mask_transform(mask)
