@@ -45,7 +45,8 @@ class TIFDataset(Dataset):
         
         return horiz_shift_percent, vert_shift_percent
 
-    def preprocess(self, image, mask, horiz_shift_percent=0, vert_shift_percent=0):
+    @staticmethod
+    def preprocess(image, mask, image_transform, mask_transform, horiz_shift_percent=0, vert_shift_percent=0):
         """
         Выполняет предобработку изображения и маски (сдвиг, добавление шума).
         
@@ -103,8 +104,8 @@ class TIFDataset(Dataset):
         full_image_with_noise = Image.fromarray(image_array)
         full_mask_with_noise = Image.fromarray(mask_array)
 
-        shifted_image_normalized = self.image_transform(full_image_with_noise)
-        shifted_mask_normalized = self.mask_transform(full_mask_with_noise)
+        shifted_image_normalized = image_transform(full_image_with_noise)
+        shifted_mask_normalized = mask_transform(full_mask_with_noise)
 
         return shifted_image_normalized, shifted_mask_normalized
 
@@ -118,7 +119,7 @@ class TIFDataset(Dataset):
         # Сдвиговые коэффициенты
         horiz, vert = self._get_rand_shift_coefs()
 
-        shifted_image_normalized, shifted_mask_normalized = self.preprocess(image, mask, horiz, vert)
+        shifted_image_normalized, shifted_mask_normalized = self.preprocess(image, mask, self.image_transform, self.mask_transform, horiz, vert)
         
         image_normalized = self.image_transform(image)
         mask_normalized = self.mask_transform(mask)
