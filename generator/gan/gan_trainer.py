@@ -43,9 +43,9 @@ class GANTrainer:
         self.optimizer_g = torch.optim.Adam(self.model.generator.parameters(), lr=self.lr_g)
         self.optimizer_d = torch.optim.Adam(self.model.discriminator.parameters(), lr=self.lr_d)
         
-        # добавление планировщиков
-        self.scheduler_g = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer_g, mode='min', factor=0.5, patience=5, verbose=True)
-        self.scheduler_d = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer_d, mode='min', factor=0.5, patience=5, verbose=True)
+        # Инициализация планировщиков без параметра verbose
+        self.scheduler_g = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer_g, mode='min', factor=0.5, patience=5)
+        self.scheduler_d = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer_d, mode='min', factor=0.5, patience=5)
         
         # объявление loss функций
         self.loss_fn_g = smp.losses.DiceLoss(mode='binary')
@@ -67,7 +67,7 @@ class GANTrainer:
                              mask_dir=self.mask_path, 
                              image_transform=self.model.image_transform, 
                              mask_transform=self.model.mask_transform)
-        self.dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
+        self.dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=6)
 
     def _train_vizualize(self, sample_noised, sample_real, sample_mask):
         noisy_input = sample_noised.cpu()
@@ -100,13 +100,13 @@ class GANTrainer:
                 generated_combined = self.model.generator(noisy_input)
                 generated_mask = generated_combined[:, 1:2, :, :]
 
-                # import matplotlib.pyplot as plt
-                # plt.figure(figsize=(10, 5))
+                import matplotlib.pyplot as plt
+                plt.figure(figsize=(10, 5))
 
-                # plt.title("Shifted Image")
-                # plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
+                plt.title("Shifted Image")
+                plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
 
-                # plt.show()
+                plt.show()
                 
                 # Обучение дискриминатора
                 real_output = self.model.discriminator(real_combined)
