@@ -57,23 +57,28 @@ class TIFDataset(Dataset):
         shift_horiz = int(image.width * (horiz / 100))
         shift_vert = int(image.height * (vert / 100))
 
-        # Вычисляем координаты для кропа с учётом сдвига
-        x_start = max(0, -shift_horiz)
-        y_start = max(0, -shift_vert)
-        x_end = min(image.width, image.width - shift_horiz) if shift_horiz < 0 else min(image.width, image.width + shift_horiz)
-        y_end = min(image.height, image.height - shift_vert) if shift_vert < 0 else min(image.height, image.height + shift_vert)
-
+        # Рассчитываем координаты для кропа
+        x_start_src = max(0, shift_horiz)
+        y_start_src = max(0, shift_vert)
+        x_end_src = min(image.width, image.width + shift_horiz) if shift_horiz < 0 else image.width
+        y_end_src = min(image.height, image.height + shift_vert) if shift_vert < 0 else image.height
+        
         # Применяем кроп
-        cropped_image = image.crop((x_start, y_start, x_end, y_end))
-        cropped_mask = mask.crop((x_start, y_start, x_end, y_end))
+        cropped_image = image.crop((x_start_src, y_start_src, x_end_src, y_end_src))
+        cropped_mask = mask.crop((x_start_src, y_start_src, x_end_src, y_end_src))
+        
+        if shift_horiz < 0:
+            x_start_src = 0
+        if shift_vert < 0:
+            y_start_src = 0
 
-        # Восстанавливаем изображения до исходного размера, заполняя нулями
+        # Создаем пустые изображения для вставки
         full_image = Image.new("L", (image.width, image.height), 0)  # Заполняем нулями
-        full_mask = Image.new("L", (mask.width, mask.height), 2)    # Заполняем двойками
+        full_mask = Image.new("L", (mask.width, mask.height), 2)  # Заполняем двойками
 
-        # Копируем кропнутые участки в полные изображения
-        full_image.paste(cropped_image, (max(0, shift_horiz), max(0, shift_vert)))
-        full_mask.paste(cropped_mask, (max(0, shift_horiz), max(0, shift_vert)))
+        # Вставляем кропнутые изображения
+        full_image.paste(cropped_image, (x_start_src, y_start_src))
+        full_mask.paste(cropped_mask, (x_start_src, y_start_src))
 
         # Генерация шума в пустых областях (в расширенных областях)
         image_array = np.array(full_image)
@@ -102,34 +107,6 @@ class TIFDataset(Dataset):
         
         image_normalized = self.image_transform(image)
         mask_normalized = self.mask_transform(mask)
-        
-        # import matplotlib.pyplot as plt
-        # plt.figure(figsize=(10, 5))
-
-        # plt.subplot(1, 2, 1)
-        # plt.title("Shifted Image")
-        # plt.imshow(full_image, cmap="gray")
-
-        # plt.subplot(1, 2, 2)
-        # plt.title("Shifted Mask")
-        # plt.imshow(full_image_with_noise, cmap="gray")
-
-        # plt.show()
-        
-        # трансформации
-        # from torchvision.transforms.functional import to_pil_image
-        # import matplotlib.pyplot as plt
-        # plt.figure(figsize=(10, 5))
-
-        # plt.subplot(1, 2, 1)
-        # plt.title("Shifted Image")
-        # plt.imshow(to_pil_image(image_normalized), cmap="gray")
-
-        # plt.subplot(1, 2, 2)
-        # plt.title("Shifted Mask")
-        # plt.imshow(to_pil_image(shifted_image_normalized), cmap="gray")
-
-        # plt.show()
         
         combined_real_input = torch.cat([image_normalized, mask_normalized], dim=0)
         shifted_noisy_combined = torch.cat([shifted_image_normalized, shifted_mask_normalized])
