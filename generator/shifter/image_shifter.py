@@ -46,18 +46,18 @@ class ImageShifter:
         shifted_image[nodata_mask] = torch.randn_like(shifted_image[nodata_mask])
         shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask])
 
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 5))
-
-        plt.subplot(1, 2, 1)
-        plt.title("Shifted Image")
-        plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
-
-        plt.subplot(1, 2, 2)
-        plt.title("Shifted Mask")
-        plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
-
-        plt.show()
+        # import matplotlib.pyplot as plt
+        # plt.figure(figsize=(10, 5))
+        #
+        # plt.subplot(1, 2, 1)
+        # plt.title("Shifted Image")
+        # plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
+        #
+        # plt.subplot(1, 2, 2)
+        # plt.title("Shifted Mask")
+        # plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
+        #
+        # plt.show()
 
         return shifted_image, shifted_mask
 
@@ -114,7 +114,7 @@ class ImageShifter:
 
         combined_image[y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt] = torch.where(
             nodata_resized,
-            transformed_image_resized.to(self.device),
+            transformed_img_nodate_resized.to(self.device),
             combined_image[y_start_tgt:y_end_tgt, x_start_tgt:x_end_tgt]
         )
 
