@@ -76,7 +76,7 @@ class TIFDataset(Dataset):
         cropped_image = image.crop((x_start_src, y_start_src, x_end_src, y_end_src))
         cropped_mask = mask.crop((x_start_src, y_start_src, x_end_src, y_end_src))
 
-        if shift_horiz < 0:
+        if shift_horiz > 0:
             x_start_src = 0
         if shift_vert < 0:
             y_start_src = 0
