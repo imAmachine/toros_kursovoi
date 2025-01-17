@@ -28,8 +28,7 @@ class GANModel:
         self.mask_transform = transforms.Compose([
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.Grayscale(),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: (x > 0.1).float())
+            transforms.ToTensor()
         ])
         self.image_transform_without_norm = transforms.Compose([
             transforms.Resize((self.target_image_size, self.target_image_size)),

@@ -31,6 +31,19 @@ class ImageShifter:
         shifted_image, shifted_mask = TIFDataset.preprocess(image_pil, mask, image_transform, mask_transform,
                                                             x_shift_percent, y_shift_percent)
 
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.title("Shifted Image")
+        plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
+
+        plt.subplot(1, 2, 2)
+        plt.title("Shifted Mask")
+        plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
+
+        plt.show()
+
         x_shift = int(image_n.shape[2] * abs(x_shift_percent) / 100)
         y_shift = int(image_n.shape[1] * abs(y_shift_percent) / 100)
 
@@ -54,19 +67,6 @@ class ImageShifter:
         nodata_mask = shifted_img == 0  # Предполагаем, что 0 — это значение nodata
         # shifted_image[nodata_mask] = torch.randn_like(shifted_image[nodata_mask])
         # shifted_mask[nodata_mask] = torch.rand_like(shifted_mask[nodata_mask])
-
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 5))
-
-        plt.subplot(1, 2, 1)
-        plt.title("Shifted Image")
-        plt.imshow(shifted_image[0].cpu().numpy(), cmap="gray")
-
-        plt.subplot(1, 2, 2)
-        plt.title("Shifted Mask")
-        plt.imshow(shifted_mask[0].cpu().numpy(), cmap="gray")
-
-        plt.show()
 
         return shifted_image, shifted_mask
 

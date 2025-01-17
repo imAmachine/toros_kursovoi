@@ -67,7 +67,7 @@ def main():
     # tester = GANTester(TEST_IMAGES_FOLDER_PATH, TEST_MASKS_FOLDER_PATH, GENERATOR_PATH)
     # tester.visualize_results()
 
-    gen_shift(TEST_INFERENCE_IMAGE_PATH, TEST_INFERENCE_MASK_PATH, 448, -10, -5)
+    gen_shift(TEST_INFERENCE_IMAGE_PATH, TEST_INFERENCE_MASK_PATH, 448, 10, 5)
 
 if __name__ == "__main__":
     main()

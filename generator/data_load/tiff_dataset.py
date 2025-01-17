@@ -45,7 +45,7 @@ class TIFDataset(Dataset):
     def preprocess(image, mask, image_transform, mask_transform, horiz_shift_percent=0, vert_shift_percent=0):
         """
         Выполняет предобработку изображения и маски (сдвиг, бинаризация, добавление шума).
-        
+
         :param image: Входное изображение (PIL Image).
         :param mask: Входная маска (PIL Image).
         :param horiz_shift_percent: Процент горизонтального сдвига.
@@ -72,7 +72,7 @@ class TIFDataset(Dataset):
         cropped_image = image.crop((x_start_src, y_start_src, x_end_src, y_end_src))
         cropped_mask = mask.crop((x_start_src, y_start_src, x_end_src, y_end_src))
 
-        if shift_horiz < 0:
+        if shift_horiz > 0:
             x_start_src = 0
         if shift_vert < 0:
             y_start_src = 0
@@ -86,24 +86,32 @@ class TIFDataset(Dataset):
         image_array = np.array(full_image)
         mask_array = np.array(full_mask)
 
-        noise_area_image = (image_array == 0)
-        noise_area_mask = (mask_array == 2)
+        noise_area = (image_array == 0)
+        noise = np.random.randint(0, 256, image_array.shape, dtype=np.uint8)
 
-        image_tensor = torch.tensor(image_array)
-        mask_tensor = torch.tensor(mask_array)
-        noise_image = torch.randint(0, 256, image_tensor.shape, dtype=torch.uint8)
-        noise_mask = torch.randint(0, 256, mask_tensor.shape, dtype=torch.uint8)
-
-        image_array[noise_area_image] = noise_image[noise_area_image]
-        mask_array[noise_area_mask] = noise_mask[noise_area_mask]
+        image_array[noise_area] = noise[noise_area]
+        mask_array[noise_area] = noise[noise_area]  # Те же области применяются к маске
 
         full_image_with_noise = Image.fromarray(image_array)
         full_mask_with_noise = Image.fromarray(mask_array)
-        print(full_image_with_noise.size, full_mask_with_noise.size)
 
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.title("Shifted Image")
+        plt.imshow(full_image_with_noise, cmap="gray")
+
+        plt.subplot(1, 2, 2)
+        plt.title("Shifted Mask")
+        plt.imshow(full_mask_with_noise, cmap="gray")
+
+        plt.show()
+
+        # Применяем трансформации
         shifted_image_normalized = image_transform(full_image_with_noise)
         shifted_mask_normalized = mask_transform(full_mask_with_noise)
-        
+
         return shifted_image_normalized, shifted_mask_normalized
 
     def __getitem__(self, idx):
