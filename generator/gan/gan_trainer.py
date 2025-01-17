@@ -43,19 +43,22 @@ class GANTrainer:
         self.optimizer_g = torch.optim.Adam(self.model.generator.parameters(), lr=self.lr_g)
         self.optimizer_d = torch.optim.Adam(self.model.discriminator.parameters(), lr=self.lr_d)
         
+        # добавление планировщиков
+        self.scheduler_g = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer_g, mode='min', factor=0.5, patience=5, verbose=True)
+        self.scheduler_d = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer_d, mode='min', factor=0.5, patience=5, verbose=True)
+        
         # объявление loss функций
         self.loss_fn_g = smp.losses.DiceLoss(mode='binary')
         self.loss_fn_d = torch.nn.BCEWithLogitsLoss()
 
     def _load_weights(self):
-        weights_dir = os.path.join(self.output_path, 'weights/')
-        os.makedirs(weights_dir, exist_ok=True)
+        os.makedirs(self.output_path, exist_ok=True)
         
-        gen_path = os.path.join(weights_dir, 'generator.pth')
-        discr_path = os.path.join(weights_dir, 'discriminator.pth')
+        gen_path = os.path.join(self.output_path, 'generator.pth')
+        discr_path = os.path.join(self.output_path, 'discriminator.pth')
         if os.path.exists(gen_path) and os.path.exists(discr_path):
-            self.model.load_weights(os.path.join(weights_dir, 'generator.pth'),
-                                    os.path.join(weights_dir, 'discriminator.pth'))
+            self.model.load_weights(os.path.join(self.output_path, 'generator.pth'),
+                                    os.path.join(self.output_path, 'discriminator.pth'))
         else:
             assert 'Ошибка загрузки весов моделей'
     
@@ -85,11 +88,8 @@ class GANTrainer:
             print(f"Epoch {epoch + 1}/{self.epochs}")
             progress_bar = tqdm(self.dataloader, desc=f"Training Epoch {epoch + 1}", leave=False)
 
-            # dataset_iter = iter(self.dataloader)
-            # samples = next(dataset_iter)
-
-            # for i in range(4):  # Визуализация первых 4 примеров из батча
-            #     self._train_vizualize(samples[0][i], samples[1][i], samples[2][i])
+            epoch_loss_g = 0.0
+            epoch_loss_d = 0.0
 
             for noisy_input, real_combined, original_mask in progress_bar:
                 noisy_input = noisy_input.to(self.device)
@@ -100,23 +100,21 @@ class GANTrainer:
                 generated_combined = self.model.generator(noisy_input)
                 generated_mask = generated_combined[:, 1:2, :, :]
 
-                # import matplotlib.pyplot as plt
-                # plt.figure(figsize=(10, 5))
+                import matplotlib.pyplot as plt
+                plt.figure(figsize=(10, 5))
 
-                # plt.title("Shifted Image")
-                # plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
+                plt.title("Shifted Image")
+                plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
 
-                # plt.show()
+                plt.show()
                 
                 # Обучение дискриминатора
                 real_output = self.model.discriminator(real_combined)
                 fake_output = self.model.discriminator(generated_combined.detach())
 
-                # Метки с "разглаживанием" (label smoothing)
                 real_labels = torch.ones_like(real_output) * 0.9 + \
-                              torch.rand_like(real_output) * 0.1
-                fake_labels = torch.zeros_like(fake_output) + \
-                              torch.rand_like(fake_output) * 0.1
+                            torch.rand_like(real_output) * 0.1
+                fake_labels = torch.zeros_like(fake_output)
 
                 loss_d_real = self.loss_fn_d(real_output, real_labels)
                 loss_d_fake = self.loss_fn_d(fake_output, fake_labels)
@@ -130,11 +128,7 @@ class GANTrainer:
                 fake_output_g = self.model.discriminator(generated_combined)
                 loss_g_adv = self.loss_fn_d(fake_output_g, torch.ones_like(fake_output_g))
 
-                # Потери на маску
-                loss_g_preserve = F.binary_cross_entropy(
-                    generated_mask * original_mask,
-                    original_mask
-                )
+                loss_g_preserve = F.l1_loss(generated_mask * original_mask, original_mask)
 
                 loss_g = loss_g_adv + 10.0 * loss_g_preserve
 
@@ -142,16 +136,28 @@ class GANTrainer:
                 loss_g.backward()
                 self.optimizer_g.step()
 
-                # Обновление прогресс-бара
+                # Суммируем потери для планировщика
+                epoch_loss_d += loss_d.item()
+                epoch_loss_g += loss_g.item()
+
                 progress_bar.set_postfix({
                     "Loss_D": loss_d.item(),
                     "Loss_G": loss_g.item(),
                     "Loss_Preserve": loss_g_preserve.item()
                 })
-            self._save_models() # сохранение каждую эпоху
 
-        # Сохранение моделей после обучения
-        self._save_models()
+                torch.nn.utils.clip_grad_norm_(self.model.generator.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(self.model.discriminator.parameters(), max_norm=1.0)
+            
+            # Средние потери за эпоху
+            epoch_loss_g /= len(self.dataloader)
+            epoch_loss_d /= len(self.dataloader)
+
+            # Шаг планировщиков
+            self.scheduler_g.step(epoch_loss_g)
+            self.scheduler_d.step(epoch_loss_d)
+            
+            self._save_models()
 
     def _save_models(self):
         torch.save(self.model.generator.state_dict(), os.path.join(self.output_path, "generator.pth"))
