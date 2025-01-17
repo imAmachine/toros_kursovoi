@@ -64,7 +64,7 @@ class GANTrainer:
                              mask_dir=self.mask_path, 
                              image_transform=self.model.image_transform, 
                              mask_transform=self.model.mask_transform)
-        self.dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        self.dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
 
     def _train_vizualize(self, sample_noised, sample_real, sample_mask):
         noisy_input = sample_noised.cpu()
@@ -85,11 +85,11 @@ class GANTrainer:
             print(f"Epoch {epoch + 1}/{self.epochs}")
             progress_bar = tqdm(self.dataloader, desc=f"Training Epoch {epoch + 1}", leave=False)
 
-            dataset_iter = iter(self.dataloader)
-            samples = next(dataset_iter)
+            # dataset_iter = iter(self.dataloader)
+            # samples = next(dataset_iter)
 
-            for i in range(4):  # Визуализация первых 4 примеров из батча
-                self._train_vizualize(samples[0][i], samples[1][i], samples[2][i])
+            # for i in range(4):  # Визуализация первых 4 примеров из батча
+            #     self._train_vizualize(samples[0][i], samples[1][i], samples[2][i])
 
             for noisy_input, real_combined, original_mask in progress_bar:
                 noisy_input = noisy_input.to(self.device)
@@ -100,6 +100,14 @@ class GANTrainer:
                 generated_combined = self.model.generator(noisy_input)
                 generated_mask = generated_combined[:, 1:2, :, :]
 
+                # import matplotlib.pyplot as plt
+                # plt.figure(figsize=(10, 5))
+
+                # plt.title("Shifted Image")
+                # plt.imshow(generated_mask[0][0].cpu().detach().numpy(), cmap="gray")
+
+                # plt.show()
+                
                 # Обучение дискриминатора
                 real_output = self.model.discriminator(real_combined)
                 fake_output = self.model.discriminator(generated_combined.detach())
