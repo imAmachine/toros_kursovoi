@@ -51,11 +51,10 @@ class GANModel:
             encoder_name="resnet50",
             encoder_weights="imagenet",
             in_channels=2,
-            classes=2,
-            activation='sigmoid'
+            classes=2
         ).to(self.device)
     
-    def _build_discriminator(self, input_channels=2, feature_maps=128):
+    def _build_discriminator(self, input_channels=2, feature_maps=64):
         return torch.nn.Sequential(
             torch.nn.Conv2d(input_channels, feature_maps, kernel_size=4, stride=2, padding=1),
             torch.nn.LeakyReLU(0.2, inplace=True),
@@ -72,6 +71,5 @@ class GANModel:
             torch.nn.BatchNorm2d(feature_maps * 8),
             torch.nn.LeakyReLU(0.2, inplace=True),
 
-            torch.nn.Conv2d(feature_maps * 8, 1, kernel_size=4, stride=1, padding=0),
-            torch.nn.Sigmoid()
+            torch.nn.Conv2d(feature_maps * 8, 1, kernel_size=4, stride=1, padding=0)
         ).to(self.device)
