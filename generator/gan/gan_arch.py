@@ -49,7 +49,7 @@ class GANModel:
 
     def _build_generator(self):
         return smp.Unet(
-            encoder_name="resnet50",
+            encoder_name="efficientnet-b4",
             encoder_weights="imagenet",
             in_channels=2,
             classes=2

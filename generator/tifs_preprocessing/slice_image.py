@@ -9,7 +9,7 @@ class ImageMaskSlicer:
     def __init__(self, geo_data_path, image_dir, mask_dir, output_image_dir, output_mask_dir, grid_size=50, target_tiles_count=300):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
-        self.geo_data = pd.read_csv(geo_data_path, sep=';')
+        self.geo_data = pd.read_csv(geo_data_path, sep=',')
         self.output_image_dir = output_image_dir
         self.output_mask_dir = output_mask_dir
         self.grid_size = grid_size
@@ -24,7 +24,7 @@ class ImageMaskSlicer:
         :param tiff_name: Имя файла GeoTIFF.
         :return: Словарь с рассчитанными параметрами плитки.
         """
-        tiff_data = self.geo_data[self.geo_data['file'] == tiff_name]
+        tiff_data = self.geo_data[self.geo_data["file"] == tiff_name]
         assert len(tiff_data) == 1, f"Multiple or no entries found for {tiff_name}"
 
         img_w = tiff_data['width'].values[0]
