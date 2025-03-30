@@ -3,6 +3,7 @@ from src.datasets.dataset_generator import IceRidgeDatasetGenerator
 from src.gan.gan_arch import GANModel
 from src.gan.gan_inference import GANInference
 from src.gan.gan_trainer import GANTrainer
+from src.processing.rotate_mask import RotateMask
 from settings import ANALYSIS_OUTPUT_FOLDER_PATH, MASKS_FOLDER_PATH
 
 # КОНСТАНТЫ ПУТЕЙ
@@ -28,7 +29,7 @@ def train(gan_model):
         val_examples=val_examples,
         output_path=GENERATOR_PATH,
         epochs=10, 
-        batch_size=32,
+        batch_size=8,
         lr_g=0.0002, 
         lr_d=0.0002,
         noise_type='gaussian',
@@ -39,12 +40,18 @@ def train(gan_model):
 def inference(gan_model):
     inference = GANInference(gan_model, "./outputs/generator.pth")
     mask = inference.infer(os.path.join(MASKS_FOLDER_PATH, "ridge_2_mask.png"), "output.png")
+
+def rotate_mask():
+    processor = RotateMask(crop_percent=0, kernel_size=11)
+    processor.process_folder(MASKS_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH)
     
 
 def main():
-    gan_model = GANModel()
-    train(gan_model=gan_model)
+    # gan_model = GANModel()
+    # train(gan_model=gan_model)
     # inference(gan_model=gan_model)
+    rotate_mask()
+    
 
 if __name__ == "__main__":
     main()
