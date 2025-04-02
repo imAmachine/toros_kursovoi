@@ -53,7 +53,7 @@ def preprocess_data(input_folder, output_folder):
     
     # Добавление процессоров для предобработки масок
     preprocessor.add_processors(processors=[
-        RotateMaskProcessor(crop_percent=10, kernel_size=7), # поворот масок к исходному углу
+        RotateMaskProcessor(crop_percent=5, kernel_size=7, postprocess_kernel_size=4), # поворот масок к исходному углу
     ])
     
     # обработка всех входных масок 
