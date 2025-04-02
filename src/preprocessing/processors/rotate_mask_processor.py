@@ -2,7 +2,7 @@ from typing import Any, Dict
 import cv2
 import numpy as np
 
-from processing.interfaces.MaskProcessor import MaskProcessor
+from ..interfaces.MaskProcessor import MaskProcessor
 
 class RotateMaskProcessor(MaskProcessor):
     """Процессор для коррекции поворота маски"""

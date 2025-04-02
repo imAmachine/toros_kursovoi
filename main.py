@@ -1,8 +1,9 @@
 import os
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH
 
-from preprocessing.mask_preprocessor import MasksPreprocessor
-from preprocessing.processors.rotate_mask_processor import RotateMaskProcessor
+
+from src.preprocessing.processors.rotate_mask_processor import RotateMaskProcessor
+from src.preprocessing.mask_preprocessor import MasksPreprocessor
 
 from src.datasets.dataset_generator import IceRidgeDatasetGenerator
 
