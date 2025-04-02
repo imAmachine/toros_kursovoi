@@ -4,18 +4,16 @@ from src.gan.gan_arch import GANModel
 from src.gan.gan_inference import GANInference
 from src.gan.gan_trainer import GANTrainer
 from src.processing.rotate_mask import RotateMask
-from settings import ANALYSIS_OUTPUT_FOLDER_PATH, MASKS_FOLDER_PATH
+from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH
 
 # КОНСТАНТЫ ПУТЕЙ
-OUTPUT_MASKS_FOLDER_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'output')
-WEIGHTS_PATH = os.path.join(ANALYSIS_OUTPUT_FOLDER_PATH, 'model_weight/weights')
-GENERATOR_PATH = os.path.join(WEIGHTS_PATH, 'generator.pth')
+TEST_INFERENCE_PATH = os.path.join(GENERATED_MASKS_FOLDER_PATH)
 
 def train(gan_model):
     # Подготовка данных
     generator = IceRidgeDatasetGenerator(
         input_dir=MASKS_FOLDER_PATH, 
-        output_dir=OUTPUT_MASKS_FOLDER_PATH
+        output_dir=GENERATED_MASKS_FOLDER_PATH
     )
     
     # Получаем примеры для обучения
@@ -38,12 +36,16 @@ def train(gan_model):
     trainer.train()
 
 def inference(gan_model):
-    inference = GANInference(gan_model, "./outputs/generator.pth")
+    inference = GANInference(gan_model, GENERATOR_PATH)
+    
+    # тест
     mask = inference.infer(os.path.join(MASKS_FOLDER_PATH, "ridge_2_mask.png"), "output.png")
 
 def rotate_mask():
+    """метод для восстановления угла поворота масок"""
+    rotated_path = os.path.join(PREPROCESSED_MASKS_FOLDER_PATH, "rotated")
     processor = RotateMask(crop_percent=0, kernel_size=11, postprocess_kernel_size=1)
-    processor.process_folder(MASKS_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH)
+    processor.process_folder(MASKS_FOLDER_PATH, rotated_path)
     
 
 def main():
