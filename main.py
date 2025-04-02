@@ -42,7 +42,7 @@ def inference(gan_model):
     mask = inference.infer(os.path.join(MASKS_FOLDER_PATH, "ridge_2_mask.png"), "output.png")
 
 def rotate_mask():
-    processor = RotateMask(crop_percent=0, kernel_size=11)
+    processor = RotateMask(crop_percent=0, kernel_size=11, postprocess_kernel_size=1)
     processor.process_folder(MASKS_FOLDER_PATH, OUTPUT_MASKS_FOLDER_PATH)
     
 

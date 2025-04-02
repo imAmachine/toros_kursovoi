@@ -3,10 +3,12 @@ import numpy as np
 import os
 
 class RotateMask:
-    def __init__(self, crop_percent=10, kernel_size=7):
+    def __init__(self, crop_percent=10, kernel_size=7, postprocess_kernel_size=5):
         self.crop_percent = crop_percent
         self.kernel = cv2.getStructuringElement(
             cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        self.postprocess_kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (postprocess_kernel_size, postprocess_kernel_size))
         self.current_angle = 0
         
     def process_folder(self, input_folder, output_folder):
@@ -71,12 +73,17 @@ class RotateMask:
         h, w = img.shape
         center = (w//2, h//2)
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        return cv2.warpAffine(
+        
+        rotated = cv2.warpAffine(
             img, M, (w, h),
-            flags=cv2.INTER_NEAREST,
+            flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=0
         )
+    
+        _, rotated = cv2.threshold(rotated, 64, 255, cv2.THRESH_BINARY)
+        rotated = cv2.morphologyEx(rotated, cv2.MORPH_CLOSE, self.postprocess_kernel)
+        return rotated
 
     def _crop_image(self, img):
         # Обрезка по процентам
