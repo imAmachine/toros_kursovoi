@@ -3,7 +3,8 @@ from typing import Any, Dict, List
 import cv2
 import numpy as np
 
-from processing.interfaces.MaskProcessor import MaskProcessor
+from preprocessing.interfaces.MaskProcessor import MaskProcessor
+
 
 
 class MasksPreprocessor:
@@ -15,6 +16,10 @@ class MasksPreprocessor:
     def add_processor(self, processor: MaskProcessor) -> None:
         """Добавляет процессор в пайплайн обработки"""
         self.processors.append(processor)
+    
+    def add_processors(self, processors: List[MaskProcessor]) -> None:
+        """Добавляет процессоры в пайплайн обработки"""
+        self.processors.extend(processors)
     
     def _process_image(self, image: np.ndarray) -> tuple[np.ndarray, Dict[str, Any]]:
         """Обрабатывает одно изображение через все процессоры"""

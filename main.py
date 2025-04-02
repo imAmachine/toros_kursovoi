@@ -1,13 +1,18 @@
 import os
+from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH
+
+from preprocessing.mask_preprocessor import MasksPreprocessor
+from preprocessing.processors.rotate_mask_processor import RotateMaskProcessor
+
 from src.datasets.dataset_generator import IceRidgeDatasetGenerator
+
 from src.gan.gan_arch import GANModel
 from src.gan.gan_inference import GANInference
 from src.gan.gan_trainer import GANTrainer
-from src.processing.rotate_mask import RotateMask
-from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH
 
-# КОНСТАНТЫ ПУТЕЙ
-TEST_INFERENCE_PATH = os.path.join(GENERATED_MASKS_FOLDER_PATH)
+
+# ДОПОЛНИТЕЛЬНЫЕ КОНСТАНТЫ ПУТЕЙ
+# ...
 
 def train(gan_model):
     # Подготовка данных
@@ -39,21 +44,23 @@ def inference(gan_model):
     inference = GANInference(gan_model, GENERATOR_PATH)
     
     # тест
-    mask = inference.infer(os.path.join(MASKS_FOLDER_PATH, "ridge_2_mask.png"), "output.png")
+    # mask = inference.infer(os.path.join(MASKS_FOLDER_PATH, "ridge_2_mask.png"), "output.png")
 
-def rotate_mask():
-    """метод для восстановления угла поворота масок"""
-    rotated_path = os.path.join(PREPROCESSED_MASKS_FOLDER_PATH, "rotated")
-    processor = RotateMask(crop_percent=0, kernel_size=11, postprocess_kernel_size=1)
-    processor.process_folder(MASKS_FOLDER_PATH, rotated_path)
+def preprocess_data(input_folder, output_folder):
+    # Создание препроцессора входных данных
+    preprocessor = MasksPreprocessor()
     
+    # Добавление процессоров для предобработки масок
+    preprocessor.add_processors(processors=[
+        RotateMaskProcessor(crop_percent=10, kernel_size=7), # поворот масок к исходному углу
+    ])
+    
+    # обработка всех входных масок 
+    _ = preprocessor.process_folder(input_folder, output_folder)
 
 def main():
-    # gan_model = GANModel()
-    # train(gan_model=gan_model)
-    # inference(gan_model=gan_model)
-    rotate_mask()
-    
+    preprocess_data(input_folder=MASKS_FOLDER_PATH, 
+                    output_folder=PREPROCESSED_MASKS_FOLDER_PATH)
 
 if __name__ == "__main__":
     main()
