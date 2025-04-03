@@ -5,7 +5,7 @@ from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_P
 def preprocess_data(input_folder, output_folder):
     preprocessor = MasksPreprocessor()
     preprocessor.add_processors(processors=[
-        EnchanceProcessor(), # улучшает маску с помощью морфинга
+        EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфинга
         RotateMaskProcessor(), # поворот масок к исходному углу
         # CropProcessor(crop_percent=5) # кроп по краям в процентном соотношении
     ])

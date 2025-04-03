@@ -8,8 +8,8 @@ from ..interfaces.IProcessor import IProcessor
 
 class RotateMaskProcessor(IProcessor):
     METADATA_NAME = 'rotation'
-    ANGLE_CHOOSE_TYPES = {'abs': RotationAnalyze.get_max_abs_angle, 
-                          'weighted': RotationAnalyze.get_weighted_angle,
+    ANGLE_CHOOSE_TYPES = {'abs': RotationAnalyze.get_max_abs_angle, # плохо работает
+                          'weighted': RotationAnalyze.get_weighted_angle, # плохо работает
                           'consistent': RotationAnalyze.get_consistent_angle}
     
     """Процессор для коррекции поворота маски"""

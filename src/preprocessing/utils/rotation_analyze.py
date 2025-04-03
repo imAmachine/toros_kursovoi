@@ -5,7 +5,7 @@ import numpy as np
 class RotationAnalyze:
     @staticmethod
     def get_max_abs_angle(angles: dict):
-        return max(map(lambda x: abs(x), list(angles.values())))
+        return int(max(map(lambda x: abs(x), list(angles.values()))))
     
     @staticmethod
     def get_weighted_angle(angles: dict):
@@ -25,10 +25,8 @@ class RotationAnalyze:
         return weighted_angle
     
     @staticmethod
-    def get_consistent_angle(angles: dict[str: float]):
-        angles = [angle for angle in angles.values() if angle != 0.0]
-        
-        return np.median(angles)
+    def get_consistent_angle(angles: dict[str: float]):        
+        return np.median(list(angles.values()))
     
     @staticmethod
     def get_PCA_rotation_angle(image: np.ndarray):
@@ -68,7 +66,7 @@ class RotationAnalyze:
         angles = []
         for line in lines:
             rho, theta = line[0]
-            angle_deg = np.degrees(theta) - 90
+            angle_deg = np.degrees(theta)
             angles.append(angle_deg)
             
         # Кластеризация углов и выбор наиболее представительного
