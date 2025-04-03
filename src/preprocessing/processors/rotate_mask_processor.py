@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from enum import Enum
 import cv2
 import numpy as np
 
@@ -6,50 +7,45 @@ from ..utils import ImageProcess, RotationAnalyze
 from ..interfaces.IProcessor import IProcessor
 
 
+class AngleChooseType(Enum):
+    ABS = RotationAnalyze.get_max_abs_angle
+    WEIGHTED = RotationAnalyze.get_weighted_angle
+    CONSISTENT = RotationAnalyze.get_consistent_angle
+
+
 class RotateMaskProcessor(IProcessor):
     METADATA_NAME = 'rotation'
-    ANGLE_CHOOSE_TYPES = {'abs': RotationAnalyze.get_max_abs_angle, # плохо работает
-                          'weighted': RotationAnalyze.get_weighted_angle, # плохо работает
-                          'consistent': RotationAnalyze.get_consistent_angle}
     
-    """Процессор для коррекции поворота маски"""
+    def __init__(self, angle_choose_type: AngleChooseType):
+        self.angle_choose_type = angle_choose_type
+        
     def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
         if metadata is None:
             metadata = {}
         
         bin_image = ImageProcess.bounding_crop(ImageProcess.binarize_by_threshold(image))
         
-        # Определение угла поворота по ограниченной области изображения
-        angle = self._calculate_rotation_angle(bin_image, angle_choose_type='consistent')
+        angle = self._calculate_rotation_angle(bin_image)
         rotated = self._rotate_image(image, angle)
+        bounded = ImageProcess.bounding_crop(rotated)
         
         metadata.update({self.METADATA_NAME: angle})
         
-        return rotated, metadata
+        return bounded, metadata
     
     def _normalize_angle(self, angle: float) -> float:
-        """Приводит угол к диапазону [-90, 90) градусов"""
+        """Normalize angle to range [-90, 90) degrees"""
         return ((angle + 90) % 180) - 90
     
-    def _calculate_rotation_angle(self, image: np.ndarray, angle_choose_type='consistent') -> float:
-        """_summary_
-
-        Args:
-            image (np.ndarray): _description_
-            angle_choose (str, optional): _description_. Defaults to 'weighted'. (abs || weighted || auto)
-
-        Returns:
-            float: _description_
-        """
+    def _calculate_rotation_angle(self, image: np.ndarray) -> float:
         angles = {
             'pca': RotationAnalyze.get_PCA_rotation_angle(image),
             'rect': RotationAnalyze.get_rect_rotation_angle(image),
             'hough': RotationAnalyze.get_hough_rotation_angle(image)
         }
     
-        # получение функции для расчёта итогового угла
-        fn = self.ANGLE_CHOOSE_TYPES.get(angle_choose_type)
-        result_angle = fn(angles)
+        # Get and execute angle calculation strategy
+        result_angle = self.angle_choose_type(angles)
         
         return result_angle
     
@@ -57,8 +53,6 @@ class RotateMaskProcessor(IProcessor):
         h, w = img.shape
         center = (w // 2, h // 2)
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated_img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR,
-                                 borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-        return ImageProcess.bounding_crop(rotated_img)
-
-    
+        rotated_img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        
+        return rotated_img
