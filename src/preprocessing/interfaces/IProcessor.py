@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, Any
 
 
-class MaskProcessor(ABC):
+class IProcessor(ABC):
     """Базовый абстрактный класс для обработчиков масок"""
     
     @abstractmethod

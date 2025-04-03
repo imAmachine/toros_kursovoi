@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import cv2
 import numpy as np
 
-from .interfaces.MaskProcessor import MaskProcessor
+from .interfaces.IProcessor import IProcessor
 
 
 
@@ -11,13 +11,13 @@ class MasksPreprocessor:
     """Основной класс для препроцессинга масок"""
     
     def __init__(self):
-        self.processors: List[MaskProcessor] = []
+        self.processors: List[IProcessor] = []
     
-    def add_processor(self, processor: MaskProcessor) -> None:
+    def add_processor(self, processor: IProcessor) -> None:
         """Добавляет процессор в пайплайн обработки"""
         self.processors.append(processor)
     
-    def add_processors(self, processors: List[MaskProcessor]) -> None:
+    def add_processors(self, processors: List[IProcessor]) -> None:
         """Добавляет процессоры в пайплайн обработки"""
         self.processors.extend(processors)
     
@@ -45,11 +45,7 @@ class MasksPreprocessor:
             
             # Формирование имени файла с метаданными
             base_name, ext = os.path.splitext(filename)
-            if 'rotation_angle' in metadata:
-                angle_str = f"{int(round(metadata['rotation_angle']))}"
-                new_filename = f"{base_name}_deg_{angle_str}{ext}"
-            else:
-                new_filename = f"{base_name}_processed{ext}"
+            new_filename = f"{base_name}_processed{ext}"
             
             # Сохранение результата
             output_path = os.path.join(output_folder, new_filename)
