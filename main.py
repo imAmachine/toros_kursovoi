@@ -1,3 +1,4 @@
+import json
 import os
 
 import cv2
@@ -40,12 +41,21 @@ def gen_dataset():
         A.Resize(height=1024, width=1024, interpolation=cv2.INTER_LANCZOS4, p=1)
     ])
     
-    return IceRidgeDatasetGenerator(GENERATED_MASKS_FOLDER_PATH, augmentation_pipeline)
+    return IceRidgeDatasetGenerator(augmentation_pipeline)
+
+def prepare_data():
+    metadata = init_preprocessor().process_folder(MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, ['.png'])
+    dataset_generator = gen_dataset().generate(GENERATED_MASKS_FOLDER_PATH, metadata)
+    
+    metadata_json_path = os.path.join(GENERATED_MASKS_FOLDER_PATH, 'metadata_dump.json')
+    
+    with open(metadata_json_path, 'w', encoding='utf8') as f:
+        json.dump(dataset_generator, f, indent=4, ensure_ascii=False)
 
 def main():
     # обработка всех входных масок 
-    metadata = init_preprocessor().process_folder(MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, ['.png'])
-    dataset_generator = gen_dataset().generate(metadata)
+    prepare_data()
+    
 
 if __name__ == "__main__":
     main()
