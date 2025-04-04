@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from src.datasets.dataset import IceRidgeDataset
 from .gan_arch import GANModel
+from src.analyzer.fractal_funcs import FractalAnalyzer
 import segmentation_models_pytorch as smp
 from tqdm import tqdm
 import numpy as np
@@ -12,8 +13,7 @@ import numpy as np
 
 class GANTrainer:
     def __init__(self, model: GANModel, train_examples, val_examples, output_path, 
-                epochs, batch_size, lr_g, lr_d, noise_type='gaussian', noise_level=0.05, 
-                load_weights=True):
+                epochs, batch_size, lr_g, lr_d, lambda_fractal=0.1, load_weights=True):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Параметры данных
@@ -26,8 +26,7 @@ class GANTrainer:
         self.batch_size = batch_size
         self.lr_g = lr_g
         self.lr_d = lr_d
-        self.noise_type = noise_type
-        self.noise_level = noise_level
+        self.lambda_fractal = lambda_fractal
         
         # Остальной код без изменений
         self.model = model
@@ -72,17 +71,13 @@ class GANTrainer:
     def _prepare_data(self):
         dataset = IceRidgeDataset(
             examples=self.train_examples,
-            transform=self.model.mask_transform,
-            noise_type=self.noise_type,
-            noise_level=self.noise_level
+            transform=self.model.mask_transform
         )
         self.dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
         
         val_dataset = IceRidgeDataset(
             examples=self.val_examples,
-            transform=self.model.mask_transform,
-            noise_type=self.noise_type,
-            noise_level=self.noise_level
+            transform=self.model.mask_transform
         )
         self.val_dataloader = DataLoader(val_dataset, batch_size=self.batch_size)
 
@@ -131,10 +126,31 @@ class GANTrainer:
         # plt.close()
         plt.show()  # Раскомментируйте, если хотите видеть изображения во время обучения
 
+    def _calculate_fractal_loss(self, real, generated):
+        batch_loss = 0.0
+        for gen, gt in zip(generated, real):
+            # Конвертация тензоров в numpy массивы
+            gen_np = gen.squeeze().cpu().detach().numpy().round().astype(np.uint8)
+            gt_np = gt.squeeze().cpu().numpy().round().astype(np.uint8)
+            
+            # Расчет ФР
+            sizes_gen, counts_gen = FractalAnalyzer.box_counting(gen_np)
+            sizes_gt, counts_gt = FractalAnalyzer.box_counting(gt_np)
+            
+            fd_gen = FractalAnalyzer.calculate_fractal_dimension(sizes_gen, counts_gen)
+            fd_gt = FractalAnalyzer.calculate_fractal_dimension(sizes_gt, counts_gt)
+            
+            batch_loss += F.l1_loss(torch.tensor(fd_gen), torch.tensor(fd_gt))
+        
+        return batch_loss / len(generated)
+
     def train(self):
         for epoch in range(self.epochs):
             print(f"\nEpoch {epoch + 1}/{self.epochs}")
             progress_bar = tqdm(self.dataloader, desc=f"Training", total=len(self.dataloader))
+
+            self.model.generator.train()
+            self.model.discriminator.train()
 
             epoch_loss_g = 0.0
             epoch_loss_d = 0.0
@@ -142,19 +158,20 @@ class GANTrainer:
             # Сохраним один batch для визуализации
             viz_batch = None
 
-            for batch_idx, (input_mask, target_mask) in enumerate(self.dataloader):
-                input_mask = input_mask.to(self.device)
-                target_mask = target_mask.to(self.device)
+            for batch_idx, (corrupted_masks, real_masks, restore_mask) in enumerate(self.dataloader):
+                corrupted_masks = corrupted_masks.to(self.device)
+                real_masks = real_masks.to(self.device)
+                restore_mask = restore_mask.to(self.device)
                 
                 # Сохраняем первый batch для визуализации
                 if batch_idx == 0:
-                    viz_batch = (input_mask.clone(), target_mask.clone())
+                    viz_batch = (real_masks.clone(), corrupted_masks.clone())
 
                 # Генерация данных
-                generated_mask = self.model.generator(input_mask)
+                generated_mask = self.model.generator(corrupted_masks, restore_mask)
                 
                 # Обучение дискриминатора
-                real_output = self.model.discriminator(target_mask)
+                real_output = self.model.discriminator(real_masks)
                 fake_output = self.model.discriminator(generated_mask.detach())
 
                 real_labels = torch.ones_like(real_output) * 0.9  # label smoothing
@@ -173,8 +190,9 @@ class GANTrainer:
                 loss_g_adv = self.loss_fn_d(fake_output_g, torch.ones_like(fake_output_g))
 
                 # Сохранение структуры исходной маски
-                loss_g_preserve = F.mse_loss(generated_mask, target_mask)
-                loss_g = loss_g_adv + 10.0 * loss_g_preserve
+                loss_g_preserve = F.binary_cross_entropy(generated_mask, real_masks)
+                fractal_loss_g = self._calculate_fractal_loss(real_masks, generated_mask)
+                loss_g = loss_g_adv + 10.0 * loss_g_preserve + self.lambda_fractal * fractal_loss_g
 
                 self.optimizer_g.zero_grad()
                 loss_g.backward()
