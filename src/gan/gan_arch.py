@@ -1,6 +1,6 @@
 import torch
 from torchvision.transforms import transforms
-import segmentation_models_pytorch as smp
+from .aot_gan import AOTGenerator
 
 
 class GANModel:
@@ -39,13 +39,7 @@ class GANModel:
         self.discriminator = self._build_discriminator()
 
     def _build_generator(self):
-        return smp.Unet(
-            encoder_name="efficientnet-b4",
-            encoder_weights="imagenet",
-            decoder_attention_type="scse",
-            in_channels=1,
-            classes=1
-        ).to(self.device)
+        return AOTGenerator().to(self.device)
     
     def _build_discriminator(self, input_channels=1, feature_maps=64):
         return torch.nn.Sequential(
