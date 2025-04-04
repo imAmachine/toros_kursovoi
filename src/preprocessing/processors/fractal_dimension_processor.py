@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
 import numpy as np
-from analyzer.fractal_funcs import FractalAnalyzer
-from preprocessing.interfaces import IProcessor
-from preprocessing.utils.image_processing import ImageProcess
+from src.analyzer.fractal_funcs import FractalAnalyzer
+from src.preprocessing.interfaces import IProcessor
+from src.preprocessing.utils.image_processing import ImageProcess
 
 class FractalDimensionProcessor(IProcessor):
     METADATA_NAME = 'fractal_dimension'
