@@ -4,17 +4,14 @@ from analyzer.fractal_funcs import DataAnalyzer
 
 class IceRidgeDatasetGenerator:
     def __init__(self, 
-                 input_folder_path, 
-                 preprocessed_out_path,
+                 input_folder_path,
                  generated_out_path,
                  preprocessed_metadata: dict,
                  albumentations_pipeline: A):
         
         self.input_folder_path = input_folder_path # путь к исходным данным
-        self.preprocessed_out_path = preprocessed_out_path
         self.generated_out_path = generated_out_path # путь к выходной директории
         
-        # предобработчик исходных масок
         self.preprocessed_metadata = preprocessed_metadata
         self.augmentations = albumentations_pipeline
 
