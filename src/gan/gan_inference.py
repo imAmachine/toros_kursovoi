@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 from torchvision.transforms import transforms
 from PIL import Image
-from .gan_arch import GANModel
+from .arch.gan import GANModel
 
 class GANInference:
     def __init__(self, gan_model: GANModel, model_weights_path):

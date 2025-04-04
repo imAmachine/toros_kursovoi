@@ -1,6 +1,6 @@
 import torch
 from torchvision.transforms import transforms
-from .aot_gan import AOTGenerator
+from .generator import AOTGenerator
 
 
 class GANModel:
