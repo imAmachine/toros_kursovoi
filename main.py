@@ -51,15 +51,17 @@ def prepare_data():
     
     metadata_json_path = os.path.join(GENERATED_MASKS_FOLDER_PATH, 'metadata_dump.json')
     
-    with open(metadata_json_path, 'w', encoding='utf8') as f:
+    with open(metadata_json_path, 'w+', encoding='utf8') as f:
         json.dump(dataset_generator, f, indent=4, ensure_ascii=False)
+        f.seek(0)
+        aug_metadata = json.load(f)
 
     dataset_creator = IceRidgeDataset(dataset_processor=ShiftProcessor(shift_percent=0.15))
 
     final_metadata = dataset_creator.load_dataset(
         source_dir=GENERATED_MASKS_FOLDER_PATH,
         output_dir=os.path.join(GENERATED_MASKS_FOLDER_PATH, "dataset"),
-        metadata=metadata
+        metadata=aug_metadata
     )
     
     # Сохранение обновленных метаданных
@@ -68,7 +70,6 @@ def prepare_data():
         json.dump(final_metadata, f, indent=4, ensure_ascii=False)
 
 def main():
-    # обработка всех входных масок 
     prepare_data()
     
 
