@@ -18,24 +18,58 @@ class AOTGenerator(torch.nn.Module):
         # Encoder
         self.enc1 = GatedConv(input_channels, feature_maps, kernel_size=7, padding=3)
         self.enc2 = GatedConv(feature_maps, feature_maps*2, kernel_size=4, stride=2, padding=1)
+        self.enc3 = GatedConv(feature_maps*2, feature_maps*4, kernel_size=4, stride=2, padding=1)
         
-        # AOT Blocks
-        self.aot_block = torch.nn.Sequential(
-            torch.nn.Conv2d(feature_maps*2, feature_maps*2, kernel_size=3, padding=1),
+        # AOT Blocks - несколько блоков вместо одного для лучшего улавливания паттернов
+        self.aot_blocks = torch.nn.ModuleList([
+            torch.nn.Sequential(
+                torch.nn.Conv2d(feature_maps*4, feature_maps*4, kernel_size=3, padding=1),
+                torch.nn.BatchNorm2d(feature_maps*4),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(feature_maps*4, feature_maps*4, kernel_size=3, padding=1),
+                torch.nn.BatchNorm2d(feature_maps*4)
+            ) for _ in range(3)  # Добавляем 3 блока для более глубоких признаков
+        ])
+        
+        # Attention module - для лучшего восстановления структурных деталей
+        self.attention = torch.nn.Sequential(
+            torch.nn.Conv2d(feature_maps*4, feature_maps, kernel_size=1),
+            torch.nn.BatchNorm2d(feature_maps),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(feature_maps*2, feature_maps*2, kernel_size=3, padding=1)
+            torch.nn.Conv2d(feature_maps, feature_maps*4, kernel_size=1),
+            torch.nn.BatchNorm2d(feature_maps*4),
+            torch.nn.Sigmoid()
         )
         
         # Decoder
-        self.dec1 = torch.nn.ConvTranspose2d(feature_maps*2, feature_maps, kernel_size=4, stride=2, padding=1)
-        self.dec2 = GatedConv(feature_maps, 1, kernel_size=7, padding=3)
+        self.dec1 = torch.nn.ConvTranspose2d(feature_maps*4, feature_maps*2, kernel_size=4, stride=2, padding=1)
+        self.dec2 = torch.nn.ConvTranspose2d(feature_maps*2, feature_maps, kernel_size=4, stride=2, padding=1)
+        self.dec3 = GatedConv(feature_maps, 1, kernel_size=7, padding=3)
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, mask):
+        # Объединяем входное изображение и маску
         x = torch.cat([x, mask], dim=1)
-        x = self.enc1(x, mask)
-        x = self.enc2(x, mask)
-        x = x + self.aot_block(x)
+        
+        # Encode
+        e1 = self.enc1(x, mask)
+        e2 = self.enc2(e1, mask)
+        e3 = self.enc3(e2, mask)
+        
+        # AOT Blocks с остаточными соединениями
+        x = e3
+        for aot_block in self.aot_blocks:
+            x = x + aot_block(x)
+        
+        # Attention механизм
+        att = self.attention(x)
+        x = x * att
+        
+        # Decode с skip-соединениями для сохранения деталей
         x = self.dec1(x)
-        x = self.dec2(x, mask)
+        x = x + e2  # Skip connection
+        x = self.dec2(x)
+        x = x + e1  # Skip connection
+        x = self.dec3(x, mask)
+        
         return self.sigmoid(x)

@@ -2,11 +2,13 @@ import json
 import os
 
 import cv2
+from src.gan.arch.gan import GANModel
+from src.gan.gan_trainer import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge import IceRidgeDatasetGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
-from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH
+from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH
 
 import albumentations as A
 
@@ -47,21 +49,29 @@ def gen_dataset():
 
 def prepare_data():
     metadata = init_preprocessor().process_folder(MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, ['.png'])
-    dataset_generator = gen_dataset().generate(GENERATED_MASKS_FOLDER_PATH, metadata)
-    
-    metadata_json_path = os.path.join(GENERATED_MASKS_FOLDER_PATH, 'metadata_dump.json')
+    generated_metadata = gen_dataset().generate(AUGMENTED_DATASET_FOLDER_PATH, metadata)
+    metadata_json_path = os.path.join(AUGMENTED_DATASET_FOLDER_PATH, 'metadata_dump.json')
     
     with open(metadata_json_path, 'w+', encoding='utf8') as f:
-        json.dump(dataset_generator, f, indent=4, ensure_ascii=False)
-        f.seek(0)
-        aug_metadata = json.load(f)
+        json.dump(generated_metadata, f, indent=4, ensure_ascii=False)
 
-    dataset_creator = IceRidgeDataset(dataset_processor=ShiftProcessor(shift_percent=0.15))
+    dataset = IceRidgeDataset(metadata=generated_metadata, 
+                              dataset_processor=ShiftProcessor(shift_percent=0.15))
+    return dataset
 
 
 def main():
-    prepare_data()
+    dataset = prepare_data()
     
+    trainer = GANTrainer(model=GANModel(target_image_size=1024),
+                         dataset=dataset,
+                         output_path=GENERATED_GAN_PATH,
+                         epochs=10,
+                         batch_size=8,
+                         lr_g=0.001,
+                         lr_d=0.001,
+                         load_weights=False)
+    trainer.train()
 
 if __name__ == "__main__":
     main()
