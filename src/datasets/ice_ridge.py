@@ -1,7 +1,6 @@
 import copy
 import os
 import cv2
-import albumentations as A
 from typing import Dict
 import copy
 import os
@@ -18,10 +17,7 @@ class IceRidgeDatasetGenerator:
    def generate(self, generated_out_path, metadata):
        return self._augmentate_folder(generated_out_path, metadata)
    
-   def _augmentate_image(self, file_name, file_metadata, generated_out_path):
-       print(f'Аугментация файла {file_name}')
-       path = file_metadata.get('output_path')
-       
+   def get_filedata(self, path):
        if not os.path.exists(path):
            return {}
        
@@ -32,6 +28,13 @@ class IceRidgeDatasetGenerator:
        
        filename = os.path.basename(path)
        base_name, ext = os.path.splitext(filename)
+       
+       return image, base_name, ext
+   
+   def _augmentate_image(self, file_name, file_metadata: Dict, generated_out_path: str):
+       print(f'Аугментация файла {file_name}')
+       path = file_metadata.get('output_path')
+       image, base_name, ext = self.get_filedata(path)
        
        new_metadata_dict = {}
        
