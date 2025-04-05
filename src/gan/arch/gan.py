@@ -4,7 +4,7 @@ from .generator import AOTGenerator
 
 
 class GANModel:
-    def __init__(self, target_image_size=224):
+    def __init__(self, target_image_size=1024):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_image_size = target_image_size
         
