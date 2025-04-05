@@ -29,3 +29,21 @@ class ImageProcess:
             crop_size_w, crop_size_h = int(w * (crop_percent / 100)), int(h * (crop_percent / 100))
             return img[crop_size_w:w-crop_size_w, crop_size_h:h-crop_size_h]
         return img
+    
+    @staticmethod
+    def auto_adjust(img: np.ndarray) -> np.ndarray:
+        # Получаем размеры изображения
+        h, w = img.shape
+        
+        if h == w:
+            return img
+        elif h > w:
+            diff = h - w
+            top_crop = diff // 2
+            bottom_crop = diff - top_crop
+            return img[top_crop:h-bottom_crop, :]
+        else:
+            diff = w - h
+            left_crop = diff // 2
+            right_crop = diff - left_crop
+            return img[:, left_crop:w-right_crop]
