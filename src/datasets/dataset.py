@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, List
 import shutil
 
-from preprocessing.interfaces import IProcessor
+from src.preprocessing.interfaces import IProcessor
 
 class IceRidgeDataset:
     def __init__(self, dataset_processor: IProcessor = None):

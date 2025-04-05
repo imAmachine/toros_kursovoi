@@ -1,6 +1,6 @@
 from typing import Any, Dict
 import numpy as np
-from preprocessing.interfaces import IProcessor
+from src.preprocessing.interfaces import IProcessor
 
 
 class ShiftProcessor(IProcessor):

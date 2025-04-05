@@ -2,6 +2,7 @@ import json
 import os
 
 import cv2
+from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge import IceRidgeDatasetGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
@@ -53,7 +54,7 @@ def prepare_data():
     with open(metadata_json_path, 'w', encoding='utf8') as f:
         json.dump(dataset_generator, f, indent=4, ensure_ascii=False)
 
-    dataset_creator = IceRidgeDataset()
+    dataset_creator = IceRidgeDataset(dataset_processor=ShiftProcessor(shift_percent=0.15))
 
     final_metadata = dataset_creator.load_dataset(
         source_dir=GENERATED_MASKS_FOLDER_PATH,
