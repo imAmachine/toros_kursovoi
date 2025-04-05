@@ -12,6 +12,7 @@ class CropProcessor(IProcessor):
         
     def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
         cropped = ImageProcess.crop_image(image, self.crop_percent)
+        adjusted = ImageProcess.auto_adjust(cropped)
         metadata.update({self.METADATA_NAME: True})
         
-        return cropped, metadata
+        return adjusted, metadata

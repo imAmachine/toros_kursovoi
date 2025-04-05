@@ -68,7 +68,6 @@ def prepare_data():
         json.dump(final_metadata, f, indent=4, ensure_ascii=False)
 
 def main():
-    # обработка всех входных масок 
     prepare_data()
     
 
