@@ -4,20 +4,13 @@ import numpy as np
 from typing import Dict, List
 import shutil
 
-class IceRidgeDatasetCreator:
-    def __init__(self,
-                 damage_ratio: float = 0.2,
-                 shift_percent: float = 0.15,
-                 max_damage_objects: int = 3):
-        self.damage_ratio = damage_ratio
-        self.shift_percent = shift_percent
-        self.max_damage_objects = max_damage_objects
-        self.directions = ['top', 'bottom', 'left', 'right']
+from preprocessing.interfaces import IProcessor
 
-    def create_dataset(self,
-                      source_dir: str,
-                      output_dir: str,
-                      metadata: Dict) -> Dict:
+class IceRidgeDataset:
+    def __init__(self, dataset_processor: IProcessor = None):
+        self.processor = dataset_processor
+
+    def load_dataset(self, source_dir: str, output_dir: str, metadata: Dict) -> Dict:
         """
         Создает датасет с триплетами файлов на основе аугментированных изображений
         """
@@ -26,16 +19,15 @@ class IceRidgeDatasetCreator:
         sample_counter = 0
 
         # Проход по всем аугментированным файлам
-        for orig_name, orig_meta in metadata.items():
+        for _, orig_meta in metadata.items():
             orig_path = orig_meta['output_path']
             
             # Загрузка оригинального изображения
             orig_image = cv2.imread(orig_path, cv2.IMREAD_GRAYSCALE)
-            if orig_image is None:
-                continue
+            if orig_image is None: continue
 
             # Генерация поврежденной версии и маски
-            damaged_image, damage_mask = self._generate_damaged_version(orig_image)
+            damaged_image, damage_mask = self.processor.process(orig_image)
             
             # Сохранение триплета
             triplet_meta = self._save_triplet(
@@ -51,56 +43,6 @@ class IceRidgeDatasetCreator:
             sample_counter += 1
 
         return new_metadata
-
-    def _generate_damaged_version(self, image: np.ndarray) -> tuple:
-        """Генерирует изображение с удаленной областью и маску повреждений"""
-        h, w = image.shape
-        direction = np.random.choice(self.directions)
-        
-        # Создаем копию оригинального изображения
-        damaged = image.copy()
-        damage_mask = np.zeros_like(image)
-        
-        # Вычисляем размер поврежденной области
-        damage_size = int(max(h, w) * self.shift_percent)
-
-        num_damages = np.random.randint(1, self.max_damage_objects+1)
-        
-        if direction == 'top':
-            # Удаляем верхнюю часть (заполняем черным)
-            damaged[:damage_size, :] = 0
-            damage_mask[:damage_size, :] = 255
-            
-        elif direction == 'bottom':
-            # Удаляем нижнюю часть
-            damaged[-damage_size:, :] = 0
-            damage_mask[-damage_size:, :] = 255
-            
-        elif direction == 'left':
-            # Удаляем левую часть
-            damaged[:, :damage_size] = 0
-            damage_mask[:, :damage_size] = 255
-            
-        elif direction == 'right':
-            # Удаляем правую часть
-            damaged[:, -damage_size:] = 0
-            damage_mask[:, -damage_size:] = 255
-
-        for _ in range(num_damages):
-            # Размеры повреждения
-            max_size = int(min(h, w) * self.damage_ratio)
-            w_dmg = np.random.randint(max_size//2, max_size)
-            h_dmg = np.random.randint(max_size//2, max_size)
-            
-            # Позиция повреждения (гарантия в границах)
-            x = np.random.randint(0, w - w_dmg)
-            y = np.random.randint(0, h - h_dmg)
-            
-            # Применяем повреждение
-            damaged[y:y+h_dmg, x:x+w_dmg] = 0
-            damage_mask[y:y+h_dmg, x:x+w_dmg] = 255
-
-        return damaged, damage_mask
 
     def _save_triplet(self,
                     output_dir: str,

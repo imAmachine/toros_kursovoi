@@ -3,7 +3,7 @@ import os
 
 import cv2
 from src.datasets.ice_ridge import IceRidgeDatasetGenerator
-from src.datasets.dataset import IceRidgeDatasetCreator
+from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, GENERATED_MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH
 
@@ -53,9 +53,9 @@ def prepare_data():
     with open(metadata_json_path, 'w', encoding='utf8') as f:
         json.dump(dataset_generator, f, indent=4, ensure_ascii=False)
 
-    dataset_creator = IceRidgeDatasetCreator()
+    dataset_creator = IceRidgeDataset()
 
-    final_metadata = dataset_creator.create_dataset(
+    final_metadata = dataset_creator.load_dataset(
         source_dir=GENERATED_MASKS_FOLDER_PATH,
         output_dir=os.path.join(GENERATED_MASKS_FOLDER_PATH, "dataset"),
         metadata=metadata
