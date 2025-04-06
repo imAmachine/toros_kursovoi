@@ -10,7 +10,7 @@ class IceRidgeDataset:
         self.processor = dataset_processor
         self.metadata = metadata
 
-    def process_dataset(self, metadata: Dict) -> Iterator[Tuple[np.ndarray, np.ndarray, np.ndarray, float]]:
+    def process_dataset(self, metadata: Dict) -> Iterator[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Генератор, возвращающий тройки (input, target, damage_mask) и фрактальную размерность"""
        
         for orig_name, orig_meta in metadata.items():
@@ -19,7 +19,7 @@ class IceRidgeDataset:
             
             if orig_image is not None:
                 damaged_image, damage_mask = self.processor.process(orig_image)
-                yield damaged_image, orig_image, damage_mask, orig_meta.get('fractal_dimension')
+                yield damaged_image, orig_image, damage_mask
 
     def split_dataset(self, metadata: Dict, val_ratio=0.2, seed=42):
         """Разделяет метаданные на обучающую и валидационную выборки"""
@@ -43,21 +43,19 @@ class IceRidgeDataset:
         
         return train_metadata, val_metadata
     
-    def to_tensor_dataset(self, metadata: Dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def to_tensor_dataset(self, metadata: Dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Конвертация всего датасета в тензоры PyTorch"""
-        inputs, targets, damages, fractal_dims = [], [], [], []
+        inputs, targets, damages = [], [], []
         
-        for damaged, target, damage, fd in self.process_dataset(metadata):
+        for damaged, target, damage in self.process_dataset(metadata):
             inputs.append(self._image_to_tensor(damaged))
             targets.append(self._image_to_tensor(target))
             damages.append(self._image_to_tensor(damage))
-            fractal_dims.append(torch.tensor(fd))
             
         return (
             torch.stack(inputs),
             torch.stack(targets),
             torch.stack(damages),
-            torch.stack(fractal_dims)
         )
 
     def _image_to_tensor(self, img: np.ndarray) -> torch.Tensor:
