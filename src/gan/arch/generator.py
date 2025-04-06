@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 
 class GatedConv(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
@@ -9,6 +10,8 @@ class GatedConv(torch.nn.Module):
     def forward(self, x, mask):
         out = self.conv(x)
         features, gate = torch.split(out, out.shape[1]//2, dim=1)
+        if mask.shape[2:] != gate.shape[2:]:
+            mask = F.interpolate(mask, size=gate.shape[2:], mode='bilinear', align_corners=False)
         gate = self.sigmoid(gate + mask)
         return features * gate
     

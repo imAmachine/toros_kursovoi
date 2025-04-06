@@ -67,7 +67,7 @@ def main():
                          dataset=dataset,
                          output_path=GENERATED_GAN_PATH,
                          epochs=10,
-                         batch_size=8,
+                         batch_size=1,
                          lr_g=0.001,
                          lr_d=0.001,
                          load_weights=False)

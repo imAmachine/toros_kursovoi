@@ -74,12 +74,11 @@ class GANTrainer:
         optimizer_d = torch.optim.Adam(self.model.discriminator.parameters(), lr=self.lr_d, betas=(0.5, 0.999))
         
         # Функции потерь
-        bce_loss = torch.nn.BCELoss()
+        bce_loss = torch.nn.BCEWithLogitsLoss()
         l1_loss = torch.nn.L1Loss()
         
         # Веса для разных компонентов loss
         lambda_l1 = 100.0
-        lambda_fractal = 10.0  # Вес для фрактальной компоненты
         
         # Метки для дискриминатора
         real_label = 1.0
@@ -88,7 +87,6 @@ class GANTrainer:
         # История обучения
         g_losses = []
         d_losses = []
-        fractal_losses = []
         
         # Подготовка данных валидации заранее
         val_dataset = self.dataset.to_tensor_dataset(val_metadata)
@@ -112,7 +110,6 @@ class GANTrainer:
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs}")
             epoch_g_loss = 0.0
             epoch_d_loss = 0.0
-            epoch_fractal_loss = 0.0
             
             for batch_idx, (inputs, targets, masks) in enumerate(pbar):
                 inputs = inputs.to(self.device)
@@ -128,13 +125,13 @@ class GANTrainer:
                 
                 # Реальные изображения
                 real_outputs = self.model.discriminator(targets)
-                real_labels = torch.full((batch_size, 1, 1, 1), real_label, device=self.device)
+                real_labels = torch.ones_like(real_outputs, device=real_outputs.device)
                 d_loss_real = bce_loss(real_outputs, real_labels)
                 
                 # Сгенерированные изображения
                 fake_images = self.model.generator(inputs, masks)
                 fake_outputs = self.model.discriminator(fake_images.detach())
-                fake_labels = torch.full((batch_size, 1, 1, 1), fake_label, device=self.device)
+                fake_labels = torch.zeros_like(fake_outputs, device=fake_outputs.device)
                 d_loss_fake = bce_loss(fake_outputs, fake_labels)
                 
                 # Общая loss дискриминатора
@@ -154,69 +151,62 @@ class GANTrainer:
                 # L1 loss (pixel-wise)
                 g_loss_l1 = l1_loss(fake_images, targets) * lambda_l1
                 
-                # Фрактальная loss
-                fractal_loss = self._calculate_fractal_loss(targets, fake_images) * lambda_fractal
-                
                 # Общая loss генератора
-                g_loss = g_loss_gan + g_loss_l1 + fractal_loss
+                g_loss = g_loss_gan + g_loss_l1
                 g_loss.backward()
                 optimizer_g.step()
                 
                 # Запись статистики
                 epoch_g_loss += g_loss.item()
                 epoch_d_loss += d_loss.item()
-                epoch_fractal_loss += fractal_loss.item()
                 
                 # Обновляем прогресс-бар
                 pbar.set_postfix({
                     'G_loss': g_loss.item(), 
-                    'D_loss': d_loss.item(),
-                    'Fractal_loss': fractal_loss.item()
+                    'D_loss': d_loss.item()
                 })
             
             # Средние значения loss за эпоху
             epoch_g_loss /= len(train_loader)
             epoch_d_loss /= len(train_loader)
-            epoch_fractal_loss /= len(train_loader)
             
             g_losses.append(epoch_g_loss)
             d_losses.append(epoch_d_loss)
-            fractal_losses.append(epoch_fractal_loss)
             
-            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {epoch_g_loss:.4f}, D_loss: {epoch_d_loss:.4f}, Fractal_loss: {epoch_fractal_loss:.4f}")
+            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {epoch_g_loss:.4f}, D_loss: {epoch_d_loss:.4f}")
             
             # Сохранение промежуточных результатов и визуализация
-            if (epoch + 1) % 5 == 0 or epoch == self.epochs - 1:
-                self._save_models()
+            
+            self._save_models()
+            
+            # Визуализация примеров из валидационного набора
+            with torch.no_grad():
+                self.model.generator.eval()
+                val_generated = self.model.generator(val_inputs, val_masks)
                 
-                # Визуализация примеров из валидационного набора
-                with torch.no_grad():
-                    self.model.generator.eval()
-                    val_generated = self.model.generator(val_inputs, val_masks)
+                # Визуализация
+                plt.figure(figsize=(15, 10))
+                for i in range(min(5, len(val_inputs))):
+                    # Исходное изображение с маской
+                    plt.subplot(3, 5, i + 1)
+                    plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
+                    plt.title('Input')
+                    plt.axis('off')
                     
-                    # Визуализация
-                    plt.figure(figsize=(15, 10))
-                    for i in range(min(5, len(val_inputs))):
-                        # Исходное изображение с маской
-                        plt.subplot(3, 5, i + 1)
-                        plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title('Input')
-                        plt.axis('off')
-                        
-                        # Сгенерированное изображение
-                        plt.subplot(3, 5, i + 6)
-                        plt.imshow(val_generated[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title('Generated')
-                        plt.axis('off')
-                        
-                        # Целевое изображение
-                        plt.subplot(3, 5, i + 11)
-                        plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title('Target')
-                        plt.axis('off')
+                    # Сгенерированное изображение
+                    plt.subplot(3, 5, i + 6)
+                    plt.imshow(val_generated[i].cpu().squeeze().numpy(), cmap='gray')
+                    plt.title('Generated')
+                    plt.axis('off')
                     
-                    plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_samples.png'))
-                    plt.close()
+                    # Целевое изображение
+                    plt.subplot(3, 5, i + 11)
+                    plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
+                    plt.title('Target')
+                    plt.axis('off')
+                
+                plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_samples.png'))
+                plt.close()
         
         # Графики обучения
         plt.figure(figsize=(12, 5))
@@ -228,12 +218,6 @@ class GANTrainer:
         plt.legend()
         plt.title('Generator and Discriminator Loss')
         
-        plt.subplot(1, 2, 2)
-        plt.plot(fractal_losses, color='green')
-        plt.xlabel('Epochs')
-        plt.ylabel('Fractal Loss')
-        plt.title('Fractal Dimension Loss')
-        
         plt.tight_layout()
         plt.savefig(os.path.join(self.output_path, 'training_history.png'))
         plt.close()
@@ -241,7 +225,7 @@ class GANTrainer:
         # Сохранение финальных моделей
         self._save_models()
         
-        return g_losses, d_losses, fractal_losses
+        return g_losses, d_losses
 
     def _save_models(self):
         torch.save(self.model.generator.state_dict(), os.path.join(self.output_path, "generator.pth"))
