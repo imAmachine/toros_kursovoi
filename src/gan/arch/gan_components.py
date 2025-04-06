@@ -99,6 +99,7 @@ class AOTGenerator(torch.nn.Module):
         
         return self.sigmoid(x)
 
+
 class AOTDiscriminator(torch.nn.Module):
     def __init__(self, input_channels=1, feature_maps=64):
         super(AOTDiscriminator, self).__init__()

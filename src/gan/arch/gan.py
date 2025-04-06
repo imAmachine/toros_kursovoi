@@ -28,4 +28,5 @@ class GANModel:
         if weights_gen_path:
             self.generator.load_state_dict(torch.load(weights_gen_path, map_location=self.device, weights_only=True))
         if weights_discr_path:
+
             self.discriminator.load_state_dict(torch.load(weights_discr_path, map_location=self.device, weights_only=True))

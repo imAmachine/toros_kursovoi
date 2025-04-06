@@ -67,7 +67,7 @@ def main():
                          output_path=WEIGHTS_PATH,
                          epochs=10,
                          batch_size=8,
-                         load_weights=False)
+                         load_weights=True)
     trainer.train()
 
 if __name__ == "__main__":
