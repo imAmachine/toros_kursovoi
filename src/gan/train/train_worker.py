@@ -63,30 +63,21 @@ def _calculate_fractal_loss(real, generated):
         return batch_loss / len(generated)
 
 class GANTrainer:
-    def __init__(self, 
-                 model: GANModel,
-                 dataset: IceRidgeDataset, 
-                 output_path, 
-                 epochs=10, 
-                 batch_size=8, 
-                 load_weights=True):
-        
+    def __init__(self, model, dataset, output_path, epochs=10, batch_size=8, load_weights=True):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
         self.model = model
         self.load_weights = load_weights
-        
         # модели тренеров
         self.g_trainer = GeneratorModelTrainer(
             model=model.generator,
             discriminator=model.discriminator,
-            optimizer=torch.optim.Adam(self.model.generator.parameters(), lr=0.0002, betas=(0.5, 0.999)),
-            lambda_l1=100.0
+            lambda_l1=1.0,
+            lambda_perceptual=0.1,
+            lambda_style=0.1
         )
         
         self.d_trainer = DiscriminatorModelTrainer(
-            model=model.discriminator,
-            optimizer=torch.optim.Adam(model.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+            model=model.discriminator
         )
         
         self.dataset = dataset
@@ -150,30 +141,26 @@ class GANTrainer:
             self.model.generator.train()
             self.model.discriminator.train()
             
-            pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs}")
+            progress = tqdm(train_loader, desc=f"Epoch {epoch+1}")
+
             epoch_g_loss = 0.0
             epoch_d_loss = 0.0
             
-            for _, (inputs, targets, masks) in enumerate(pbar):
+            for inputs, targets, masks in progress:
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 masks = masks.to(self.device)
                 
-                # Тренировка генератора
+                # Обучение генератора
                 g_loss, fake_images = self.g_trainer.train_pipeline_step(inputs, masks, targets)
                 
-                # Тренировка дискриминатора
+                # Обучение дискриминатора
                 d_loss = self.d_trainer.train_pipeline_step(targets, fake_images, masks)
-                
-                # Запись статистики
+
                 epoch_g_loss += g_loss
                 epoch_d_loss += d_loss
                 
-                # Обновляем прогресс-бар
-                pbar.set_postfix({
-                    'G_loss': g_loss, 
-                    'D_loss': d_loss
-                })
+                progress.set_postfix({"G_loss": g_loss, "D_loss": d_loss})
             
             # Средние значения loss за эпоху
             epoch_g_loss /= len(train_loader)

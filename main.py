@@ -1,10 +1,12 @@
 import json
 import os
+import torch
 import cv2
 from src.gan.arch.gan import GANModel
 from src.gan.train.train_worker import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
+from src.gan.arch.gan_components import AOTDiscriminator, InpaintGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH
@@ -41,7 +43,7 @@ def gen_dataset():
         
         # Обрезка и изменение размера для симуляции разных масштабов съемки
         A.RandomCrop(height=512, width=512, p=0.5),
-        A.Resize(height=1024, width=1024, interpolation=cv2.INTER_LANCZOS4, p=1)
+        A.Resize(height=512, width=512, interpolation=cv2.INTER_LANCZOS4, p=1)
     ])
     
     return IceRidgeDatasetGenerator(augmentation_pipeline)
@@ -61,14 +63,31 @@ def prepare_data():
 
 def main():
     dataset = prepare_data()
-    gan = GANModel(target_image_size=224, g_feature_maps=64, d_feature_maps=64)
-    
-    trainer = GANTrainer(model=gan,
-                         dataset=dataset,
-                         output_path=WEIGHTS_PATH,
-                         epochs=1,
-                         batch_size=2,
-                         load_weights=False)
+
+    # Создаем генератор и дискриминатор AOT-GAN
+    class Args:
+        block_num = 8
+        rates = [1, 2, 4, 8]
+
+    args = Args()
+    generator = InpaintGenerator(args)
+    discriminator = AOTDiscriminator()
+
+    gan = GANModel(
+        generator=generator,
+        discriminator=discriminator,
+        device='cuda' if torch.cuda.is_available() else 'cpu',
+        target_image_size=224
+    )
+
+    trainer = GANTrainer(
+        model=gan,
+        dataset=dataset,
+        output_path=WEIGHTS_PATH,
+        epochs=5,
+        batch_size=2,
+    )
+
     trainer.train()
 
 if __name__ == "__main__":
