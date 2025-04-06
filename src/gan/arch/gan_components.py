@@ -52,6 +52,7 @@ class AOTGenerator(torch.nn.Module):
 
     def forward(self, x, mask):
         # Объединяем входное изображение и маску
+        x_input = x
         x = torch.cat([x, mask], dim=1)
         
         # Encode
@@ -74,6 +75,8 @@ class AOTGenerator(torch.nn.Module):
         x = self.dec2(x)
         x = x + e1  # Skip connection
         x = self.dec3(x, mask)
+
+        generated = self.sigmoid(x)
         
         return self.sigmoid(x)
 
