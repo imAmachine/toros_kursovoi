@@ -57,7 +57,7 @@ class AOTGenerator(torch.nn.Module):
         self.enc3 = GatedConv(feature_maps*2, feature_maps*4, kernel_size=4, stride=2, padding=1)
         
         # AOT Blocks - несколько блоков вместо одного для лучшего улавливания паттернов
-        self.aot_blocks = torch.nn.ModuleList([AOTBlock(dim=256) for _ in range(aot_blocks)])
+        self.aot_blocks = torch.nn.ModuleList([AOTBlock(dim=feature_maps*4) for _ in range(aot_blocks)])
         
         # Attention module - для лучшего восстановления структурных деталей
         self.attention = torch.nn.Sequential(
