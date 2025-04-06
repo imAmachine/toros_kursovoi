@@ -17,7 +17,7 @@ def init_preprocessor():
         EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфинга
         RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
         CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
-        FractalDimensionProcessor() # вычисление фрактальной размерности
+        #FractalDimensionProcessor() # вычисление фрактальной размерности
     ])
     return preprocessor
 
@@ -61,13 +61,14 @@ def prepare_data():
 
 def main():
     dataset = prepare_data()
+    gan = GANModel(target_image_size=224, g_feature_maps=16, d_feature_maps=16)
     
-    trainer = GANTrainer(model=GANModel(),
+    trainer = GANTrainer(model=gan,
                          dataset=dataset,
                          output_path=WEIGHTS_PATH,
                          epochs=10,
-                         batch_size=8,
-                         load_weights=True)
+                         batch_size=4,
+                         load_weights=False)
     trainer.train()
 
 if __name__ == "__main__":
