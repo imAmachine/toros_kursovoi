@@ -124,13 +124,13 @@ class GANTrainer:
                 optimizer_d.zero_grad()
                 
                 # Реальные изображения
-                real_outputs = self.model.discriminator(targets)
+                real_outputs = self.model.discriminator(targets * masks)
                 real_labels = torch.ones_like(real_outputs, device=real_outputs.device)
                 d_loss_real = bce_loss(real_outputs, real_labels)
                 
                 # Сгенерированные изображения
                 fake_images = self.model.generator(inputs, masks)
-                fake_outputs = self.model.discriminator(fake_images.detach())
+                fake_outputs = self.model.discriminator(fake_images.detach() * masks)
                 fake_labels = torch.zeros_like(fake_outputs, device=fake_outputs.device)
                 d_loss_fake = bce_loss(fake_outputs, fake_labels)
                 
