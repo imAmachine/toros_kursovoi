@@ -9,7 +9,8 @@ OUTPUT_FOLDER_PATH = "./data/processed_output/"
 # пути к директориям для масок
 MASKS_FOLDER_PATH = "./data/masks/" # исходные маски
 PREPROCESSED_MASKS_FOLDER_PATH = os.path.join(OUTPUT_FOLDER_PATH, "preprocessed") # предобработанные входные маски
-GENERATED_MASKS_FOLDER_PATH = os.path.join(OUTPUT_FOLDER_PATH, 'generated') # обработанные
+AUGMENTED_DATASET_FOLDER_PATH = os.path.join(OUTPUT_FOLDER_PATH, 'augmented_dataset') # обработанные
+GENERATED_GAN_PATH = os.path.join(OUTPUT_FOLDER_PATH, 'generated')
 
 # пути к весам модели
 WEIGHTS_PATH = os.path.join(OUTPUT_FOLDER_PATH, 'model_weight/weights')

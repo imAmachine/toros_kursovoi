@@ -8,7 +8,7 @@ class IProcessor(ABC):
     """Базовый абстрактный класс для обработчиков масок"""
     
     @abstractmethod
-    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
+    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple:
         """
         Обрабатывает изображение маски
         
@@ -17,6 +17,6 @@ class IProcessor(ABC):
             metadata: Метаданные изображения
             
         Returns:
-            tuple: (обработанное изображение, обновленные метаданные)
+            tuple: (обработанные данные)
         """
         pass

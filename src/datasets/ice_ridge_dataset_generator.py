@@ -3,6 +3,10 @@ import cv2
 from typing import Dict
 import os
 import cv2
+<<<<<<< HEAD:src/datasets/ice_ridge.py
+=======
+
+>>>>>>> alpha:src/datasets/ice_ridge_dataset_generator.py
 
 class IceRidgeDatasetGenerator:
    def __init__(self, 

@@ -1,23 +1,25 @@
 import torch
 from torchvision.transforms import transforms
-from .generator import AOTGenerator
+from .gan_components import AOTDiscriminator, AOTGenerator
 
 
 class GANModel:
+<<<<<<< HEAD
     def __init__(self, target_image_size=1024):
+=======
+    def __init__(self, target_image_size=1024, g_feature_maps=32, d_feature_maps=32):
+>>>>>>> alpha
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_image_size = target_image_size
+        self.g_feature_maps = g_feature_maps
+        self.d_feature_maps = d_feature_maps
         
-        self.generator = None
-        self.discriminator = None
-        self.image_transform = None
-        self.mask_transform = None
-        
-        self._build_models()
-        self._initialize_transforms()
+        self.generator = AOTGenerator(feature_maps=self.g_feature_maps).to(self.device)
+        self.discriminator = AOTDiscriminator(feature_maps=self.d_feature_maps).to(self.device)
+        self.mask_transform = self._initialize_transforms()
 
     def _initialize_transforms(self):
-        self.mask_transform = transforms.Compose([
+        return transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor()
@@ -32,31 +34,5 @@ class GANModel:
         if weights_gen_path:
             self.generator.load_state_dict(torch.load(weights_gen_path, map_location=self.device, weights_only=True))
         if weights_discr_path:
+
             self.discriminator.load_state_dict(torch.load(weights_discr_path, map_location=self.device, weights_only=True))
-    
-    def _build_models(self):
-        self.generator = self._build_generator()
-        self.discriminator = self._build_discriminator()
-
-    def _build_generator(self):
-        return AOTGenerator().to(self.device)
-    
-    def _build_discriminator(self, input_channels=1, feature_maps=64):
-        return torch.nn.Sequential(
-            torch.nn.Conv2d(input_channels, feature_maps, kernel_size=4, stride=2, padding=1),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            
-            torch.nn.Conv2d(feature_maps, feature_maps * 2, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(feature_maps * 2),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-
-            torch.nn.Conv2d(feature_maps * 2, feature_maps * 4, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(feature_maps * 4),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-
-            torch.nn.Conv2d(feature_maps * 4, feature_maps * 8, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(feature_maps * 8),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-
-            torch.nn.Conv2d(feature_maps * 8, 1, kernel_size=4, stride=1, padding=0)
-        ).to(self.device)
