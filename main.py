@@ -2,13 +2,15 @@ import json
 import os
 
 import cv2
-from src.gan.arch.gan import GANModel
-from src.gan.gan_trainer import GANTrainer
+import torch
+from gan.arch.gan import GANModel
+from gan.train.trainers import DiscriminatorModelTrainer, GeneratorModelTrainer
+from gan.train.train_worker import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge import IceRidgeDatasetGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
-from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH
+from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH
 
 import albumentations as A
 
@@ -63,14 +65,12 @@ def prepare_data():
 def main():
     dataset = prepare_data()
     
-    trainer = GANTrainer(model=GANModel(target_image_size=1024),
+    trainer = GANTrainer(model=GANModel(),
                          dataset=dataset,
-                         output_path=GENERATED_GAN_PATH,
+                         output_path=WEIGHTS_PATH,
                          epochs=10,
-                         batch_size=1,
-                         lr_g=0.001,
-                         lr_d=0.001,
-                         load_weights=False)
+                         batch_size=8,
+                         load_weights=True)
     trainer.train()
 
 if __name__ == "__main__":

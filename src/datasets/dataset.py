@@ -52,11 +52,7 @@ class IceRidgeDataset:
             targets.append(self._image_to_tensor(target))
             damages.append(self._image_to_tensor(damage))
             
-        return (
-            torch.stack(inputs),
-            torch.stack(targets),
-            torch.stack(damages),
-        )
+        return torch.stack(inputs), torch.stack(targets), torch.stack(damages)
 
     def _image_to_tensor(self, img: np.ndarray) -> torch.Tensor:
         """Конвертация numpy array в тензор PyTorch"""

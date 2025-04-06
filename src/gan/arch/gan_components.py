@@ -76,3 +76,29 @@ class AOTGenerator(torch.nn.Module):
         x = self.dec3(x, mask)
         
         return self.sigmoid(x)
+
+
+class AOTDiscriminator(torch.nn.Module):
+    def __init__(self, input_channels=1, feature_maps=64):
+        super(AOTDiscriminator, self).__init__()
+        self.model = torch.nn.Sequential(
+            torch.nn.Conv2d(input_channels, feature_maps, kernel_size=4, stride=2, padding=1),
+            torch.nn.LeakyReLU(0.2, inplace=True),
+            
+            torch.nn.Conv2d(feature_maps, feature_maps * 2, kernel_size=4, stride=2, padding=1),
+            torch.nn.BatchNorm2d(feature_maps * 2),
+            torch.nn.LeakyReLU(0.2, inplace=True),
+
+            torch.nn.Conv2d(feature_maps * 2, feature_maps * 4, kernel_size=4, stride=2, padding=1),
+            torch.nn.BatchNorm2d(feature_maps * 4),
+            torch.nn.LeakyReLU(0.2, inplace=True),
+
+            torch.nn.Conv2d(feature_maps * 4, feature_maps * 8, kernel_size=4, stride=2, padding=1),
+            torch.nn.BatchNorm2d(feature_maps * 8),
+            torch.nn.LeakyReLU(0.2, inplace=True),
+
+            torch.nn.Conv2d(feature_maps * 8, 1, kernel_size=4, stride=1, padding=0)
+        )
+    
+    def forward(self, x):
+        return self.model(x)
