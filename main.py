@@ -61,12 +61,12 @@ def prepare_data():
 
 def main():
     dataset = prepare_data()
-    gan = GANModel(target_image_size=224, g_feature_maps=16, d_feature_maps=16)
+    gan = GANModel(target_image_size=224, g_feature_maps=64, d_feature_maps=64)
     
     trainer = GANTrainer(model=gan,
                          dataset=dataset,
                          output_path=WEIGHTS_PATH,
-                         epochs=10,
+                         epochs=1,
                          batch_size=4,
                          load_weights=False)
     trainer.train()

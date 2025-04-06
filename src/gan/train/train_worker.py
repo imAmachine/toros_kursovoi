@@ -154,7 +154,7 @@ class GANTrainer:
             epoch_g_loss = 0.0
             epoch_d_loss = 0.0
             
-            for batch_idx, (inputs, targets, masks) in enumerate(pbar):
+            for _, (inputs, targets, masks) in enumerate(pbar):
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 masks = masks.to(self.device)
@@ -182,49 +182,48 @@ class GANTrainer:
             print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {epoch_g_loss:.4f}, D_loss: {epoch_d_loss:.4f}")
             self._save_models()
             
-            # Оценка метрик качества генерации
-            val_inputs, val_targets, val_masks = next(iter(val_loader))
-            val_inputs = val_inputs.to(self.device)
-            val_targets = val_targets.to(self.device)
-            val_masks = val_masks.to(self.device)
-
-            with torch.no_grad():
-                generated_val = self.model.generator(val_inputs, val_masks)
-
-            dice = _calculate_dice_score(val_targets, generated_val)
-            iou = _calculate_iou(val_targets, generated_val)
-            ssim_score = _calculate_ssim(val_targets, generated_val)
-            fractal_loss = _calculate_fractal_loss(val_targets, generated_val)
-
-            print(f"[METRICS] Dice: {dice:.4f}, IoU: {iou:.4f}, SSIM: {ssim_score:.4f}, FractalLoss: {fractal_loss:.4f}")
-
+            
+            # нужно убрать этот страх===============================================================================
             with torch.no_grad():
                 self.model.generator.eval()
-                val_generated = self.model.generator(val_inputs, val_masks)
+                # Оценка метрик качества генерации
+                val_inputs, val_targets, val_masks = next(iter(val_loader))
+                val_inputs = val_inputs.to(self.device)
+                val_targets = val_targets.to(self.device)
+                val_masks = val_masks.to(self.device)
+                
+                generated_val = self.model.generator(val_inputs, val_masks)
+
+                dice = _calculate_dice_score(val_targets, generated_val)
+                iou = _calculate_iou(val_targets, generated_val)
+                ssim_score = _calculate_ssim(val_targets, generated_val)
+                fractal_loss = _calculate_fractal_loss(val_targets, generated_val)
+
+                print(f"[METRICS] Dice: {dice:.4f}, IoU: {iou:.4f}, SSIM: {ssim_score:.4f}, FractalLoss: {fractal_loss:.4f}")
                 
                 # Визуализация
                 plt.figure(figsize=(15, 10))
                 for i in range(min(5, len(val_inputs))):
                     # Исходное изображение с маской
-                    plt.subplot(3, 5, i + 1)
+                    plt.subplot(2, 5, i + 1)
                     plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
                     plt.title('Input')
                     plt.axis('off')
                     
                     # Сгенерированное изображение
-                    plt.subplot(3, 5, i + 6)
-                    plt.imshow(val_generated[i].cpu().squeeze().numpy(), cmap='gray')
+                    plt.subplot(2, 5, i + 6)
+                    plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
                     plt.title('Generated')
                     plt.axis('off')
                     
                     # Целевое изображение
-                    plt.subplot(3, 5, i + 11)
+                    plt.subplot(2, 5, i + 11)
                     plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
                     plt.title('Target')
                     plt.axis('off')
                 
-                plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_samples.png'))
-                plt.close()
+                    plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_samples.png'))
+                    plt.close()
         
         # Графики обучения используя историю из тренеров
         plt.figure(figsize=(12, 5))
