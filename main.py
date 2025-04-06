@@ -1,13 +1,10 @@
 import json
 import os
-
 import cv2
-import torch
 from gan.arch.gan import GANModel
-from gan.train.trainers import DiscriminatorModelTrainer, GeneratorModelTrainer
 from gan.train.train_worker import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
-from src.datasets.ice_ridge import IceRidgeDatasetGenerator
+from datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH

@@ -79,8 +79,29 @@ class GANTrainer:
         self.g_trainer.save_model_state_dict(self.output_path)
         self.d_trainer.save_model_state_dict(self.output_path)
 
-    def train(self):
+    def prepare_dataloaders(self):
         train_metadata, val_metadata = self.dataset.split_dataset(self.dataset.metadata, val_ratio=0.2)
+        train_dataset = IceRidgeDataset(train_metadata, dataset_processor=self.dataset.processor)
+        val_dataset = IceRidgeDataset(val_metadata, dataset_processor=self.dataset.processor)
+        
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4
+        )
+        
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4
+        )
+        
+        return train_loader, val_loader
+    
+    def train(self):
+        train_loader, val_loader = self.prepare_dataloaders()
         
         # Загрузка весов, если требуется
         if self.load_weights:
@@ -94,14 +115,6 @@ class GANTrainer:
         for epoch in range(self.epochs):
             self.model.generator.train()
             self.model.discriminator.train()
-            
-            # Создаем DataLoader для тренировочных данных
-            inp, targ, dmg = self.dataset.to_tensor_dataset(train_metadata)
-            train_loader = DataLoader(
-                torch.utils.data.TensorDataset(inp, targ, dmg),
-                batch_size=self.batch_size,
-                shuffle=True
-            )
             
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs}")
             epoch_g_loss = 0.0
