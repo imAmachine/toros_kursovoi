@@ -1,8 +1,4 @@
-import logging
 import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-import pandas as pd
 from scipy.stats import linregress
 
 
