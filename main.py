@@ -67,7 +67,7 @@ def main():
                          dataset=dataset,
                          output_path=WEIGHTS_PATH,
                          epochs=1,
-                         batch_size=4,
+                         batch_size=2,
                          load_weights=False)
     trainer.train()
 

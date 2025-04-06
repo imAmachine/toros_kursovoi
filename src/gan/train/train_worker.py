@@ -186,44 +186,57 @@ class GANTrainer:
             # нужно убрать этот страх===============================================================================
             with torch.no_grad():
                 self.model.generator.eval()
-                # Оценка метрик качества генерации
-                val_inputs, val_targets, val_masks = next(iter(val_loader))
-                val_inputs = val_inputs.to(self.device)
-                val_targets = val_targets.to(self.device)
-                val_masks = val_masks.to(self.device)
+                val_g_loss = 0.0
+                total_samples = 0
                 
-                generated_val = self.model.generator(val_inputs, val_masks)
-
-                dice = _calculate_dice_score(val_targets, generated_val)
-                iou = _calculate_iou(val_targets, generated_val)
-                ssim_score = _calculate_ssim(val_targets, generated_val)
-                fractal_loss = _calculate_fractal_loss(val_targets, generated_val)
-
-                print(f"[METRICS] Dice: {dice:.4f}, IoU: {iou:.4f}, SSIM: {ssim_score:.4f}, FractalLoss: {fractal_loss:.4f}")
-                
-                # Визуализация
-                plt.figure(figsize=(15, 10))
-                for i in range(min(5, len(val_inputs))):
-                    # Исходное изображение с маской
-                    plt.subplot(2, 5, i + 1)
-                    plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
-                    plt.title('Input')
-                    plt.axis('off')
+                for batch_idx, (val_inputs, val_targets, val_masks) in enumerate(val_loader):
+                    if batch_idx == 2:
+                        break
                     
-                    # Сгенерированное изображение
-                    plt.subplot(2, 5, i + 6)
-                    plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
-                    plt.title('Generated')
-                    plt.axis('off')
+                    val_inputs = val_inputs.to(self.device)
+                    val_targets = val_targets.to(self.device)
+                    val_masks = val_masks.to(self.device)
                     
-                    # Целевое изображение
-                    plt.subplot(2, 5, i + 11)
-                    plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
-                    plt.title('Target')
-                    plt.axis('off')
-                
-                    plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_samples.png'))
+                    # Генерация изображений
+                    generated_val = self.model.generator(val_inputs, val_masks)
+                    
+                    # Вычисление метрик
+                    dice = _calculate_dice_score(val_targets, generated_val)
+                    iou = _calculate_iou(val_targets, generated_val)
+                    ssim_score = _calculate_ssim(val_targets, generated_val)
+                    fractal_loss = _calculate_fractal_loss(val_targets, generated_val)
+                    
+                    val_g_loss += dice  # Пример: суммирование одной из метрик
+                    total_samples += val_inputs.size(0)
+                    
+                    # Визуализация
+                    plt.figure(figsize=(15, 10))
+                    for i in range(min(5, len(val_inputs))):  # Первые 5 изображений
+                        # Исходное изображение
+                        plt.subplot(3, 5, i + 1)
+                        plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
+                        plt.title(f'Input [Batch {batch_idx}]')
+                        plt.axis('off')
+                        
+                        # Сгенерированное изображение
+                        plt.subplot(3, 5, i + 6)
+                        plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
+                        plt.title(f'Generated [Batch {batch_idx}]')
+                        plt.axis('off')
+                        
+                        # Целевое изображение
+                        plt.subplot(3, 5, i + 11)
+                        plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
+                        plt.title(f'Target [Batch {batch_idx}]')
+                        plt.axis('off')
+                    
+                    plt.tight_layout()
+                    plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_batch_{batch_idx}_samples.png'), dpi=300)
                     plt.close()
+                
+                # Среднее значение по метрикам
+                val_g_loss /= total_samples
+                print(f"[VALIDATION METRICS] Epoch {epoch+1}: Avg Dice: {val_g_loss:.4f}, IoU: {iou:.4f}, SSIM: {ssim_score:.4f}, FractalLoss: {fractal_loss:.4f}")
         
         # Графики обучения используя историю из тренеров
         plt.figure(figsize=(12, 5))
