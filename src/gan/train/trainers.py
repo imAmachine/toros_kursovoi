@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 from src.gan.arch.gan_components import AOTDiscriminator
-from gan.arch.gan_components import AOTGenerator
+from src.gan.arch.gan_components import AOTGenerator
 from .interfaces.model_trainer import IModelTrainer
 
 class GeneratorModelTrainer(IModelTrainer):

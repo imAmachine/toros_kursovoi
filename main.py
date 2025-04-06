@@ -1,10 +1,10 @@
 import json
 import os
 import cv2
-from gan.arch.gan import GANModel
-from gan.train.train_worker import GANTrainer
+from src.gan.arch.gan import GANModel
+from src.gan.train.train_worker import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
-from datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
+from src.datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH
@@ -17,7 +17,7 @@ def init_preprocessor():
         EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфинга
         RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
         CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
-        FractalDimensionProcessor() # вычисление фрактальной размерности
+        #FractalDimensionProcessor() # вычисление фрактальной размерности
     ])
     return preprocessor
 
@@ -61,13 +61,14 @@ def prepare_data():
 
 def main():
     dataset = prepare_data()
+    gan = GANModel(target_image_size=224, g_feature_maps=16, d_feature_maps=16)
     
-    trainer = GANTrainer(model=GANModel(),
+    trainer = GANTrainer(model=gan,
                          dataset=dataset,
                          output_path=WEIGHTS_PATH,
                          epochs=10,
-                         batch_size=8,
-                         load_weights=True)
+                         batch_size=4,
+                         load_weights=False)
     trainer.train()
 
 if __name__ == "__main__":

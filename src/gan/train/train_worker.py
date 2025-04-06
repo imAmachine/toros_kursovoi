@@ -3,12 +3,46 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-from gan.train.trainers import DiscriminatorModelTrainer, GeneratorModelTrainer
+from src.gan.train.trainers import DiscriminatorModelTrainer, GeneratorModelTrainer
 from src.datasets.dataset import IceRidgeDataset
-from gan.arch.gan import GANModel
+from src.gan.arch.gan import GANModel
 from src.analyzer.fractal_funcs import FractalAnalyzer
 from tqdm import tqdm
 import numpy as np
+
+from skimage.metrics import structural_similarity as ssim
+
+def _calculate_dice_score(real, generated):
+    dice_scores = []
+    for pred, gt in zip(generated, real):
+        pred_np = pred.squeeze().cpu().detach().numpy().round().astype(np.uint8)
+        gt_np = gt.squeeze().cpu().numpy().round().astype(np.uint8)
+        
+        intersection = (pred_np & gt_np).sum()
+        dice = (2. * intersection) / (pred_np.sum() + gt_np.sum() + 1e-6)
+        dice_scores.append(dice)
+    return sum(dice_scores) / len(dice_scores)
+
+def _calculate_iou(real, generated):
+    iou_scores = []
+    for pred, gt in zip(generated, real):
+        pred_np = pred.squeeze().cpu().detach().numpy().round().astype(np.uint8)
+        gt_np = gt.squeeze().cpu().numpy().round().astype(np.uint8)
+        
+        intersection = (pred_np & gt_np).sum()
+        union = (pred_np | gt_np).sum()
+        iou = intersection / (union + 1e-6)
+        iou_scores.append(iou)
+    return sum(iou_scores) / len(iou_scores)
+
+def _calculate_ssim(real, generated):
+    ssim_scores = []
+    for pred, gt in zip(generated, real):
+        pred_np = pred.squeeze().cpu().detach().numpy().astype(np.float32)
+        gt_np = gt.squeeze().cpu().numpy().astype(np.float32)
+        score = ssim(gt_np, pred_np, data_range=1.0)
+        ssim_scores.append(score)
+    return sum(ssim_scores) / len(ssim_scores)
 
 def _calculate_fractal_loss(real, generated):
         batch_loss = 0.0
@@ -147,6 +181,22 @@ class GANTrainer:
             
             print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {epoch_g_loss:.4f}, D_loss: {epoch_d_loss:.4f}")
             self._save_models()
+            
+            # Оценка метрик качества генерации
+            val_inputs, val_targets, val_masks = next(iter(val_loader))
+            val_inputs = val_inputs.to(self.device)
+            val_targets = val_targets.to(self.device)
+            val_masks = val_masks.to(self.device)
+
+            with torch.no_grad():
+                generated_val = self.model.generator(val_inputs, val_masks)
+
+            dice = _calculate_dice_score(val_targets, generated_val)
+            iou = _calculate_iou(val_targets, generated_val)
+            ssim_score = _calculate_ssim(val_targets, generated_val)
+            fractal_loss = _calculate_fractal_loss(val_targets, generated_val)
+
+            print(f"[METRICS] Dice: {dice:.4f}, IoU: {iou:.4f}, SSIM: {ssim_score:.4f}, FractalLoss: {fractal_loss:.4f}")
         
         # Графики обучения используя историю из тренеров
         plt.figure(figsize=(12, 5))
