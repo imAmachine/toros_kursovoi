@@ -2,8 +2,8 @@ from src.preprocessing.interfaces import IProcessor
 import torch
 import numpy as np
 import cv2
-from torch.utils.data import Dataset, DataLoader
-from typing import Dict, Tuple, Iterator, List, Any
+from torch.utils.data import Dataset
+from typing import Dict, Tuple
 import random
 
 
