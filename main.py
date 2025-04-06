@@ -17,7 +17,7 @@ def init_preprocessor():
         EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфинга
         RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
         CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
-        FractalDimensionProcessor() # вычисление фрактальной размерности
+        #FractalDimensionProcessor() # вычисление фрактальной размерности
     ])
     return preprocessor
 
@@ -41,7 +41,7 @@ def gen_dataset():
         
         # Обрезка и изменение размера для симуляции разных масштабов съемки
         A.RandomCrop(height=512, width=512, p=0.5),
-        A.Resize(height=512, width=512, interpolation=cv2.INTER_LANCZOS4, p=1)
+        A.Resize(height=1024, width=1024, interpolation=cv2.INTER_LANCZOS4, p=1)
     ])
     
     return IceRidgeDatasetGenerator(augmentation_pipeline)
@@ -61,13 +61,14 @@ def prepare_data():
 
 def main():
     dataset = prepare_data()
+    gan = GANModel(target_image_size=224, g_feature_maps=64, d_feature_maps=64)
     
-    trainer = GANTrainer(model=GANModel(),
+    trainer = GANTrainer(model=gan,
                          dataset=dataset,
                          output_path=WEIGHTS_PATH,
                          epochs=10,
-                         batch_size=8,
-                         load_weights=True)
+                         batch_size=2,
+                         load_weights=False)
     trainer.train()
 
 if __name__ == "__main__":

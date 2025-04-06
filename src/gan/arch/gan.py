@@ -4,12 +4,14 @@ from .gan_components import AOTDiscriminator, AOTGenerator
 
 
 class GANModel:
-    def __init__(self, target_image_size=1024):
+    def __init__(self, target_image_size=1024, g_feature_maps=32, d_feature_maps=32):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_image_size = target_image_size
+        self.g_feature_maps = g_feature_maps
+        self.d_feature_maps = d_feature_maps
         
-        self.generator = AOTGenerator().to(self.device)
-        self.discriminator = AOTDiscriminator().to(self.device)
+        self.generator = AOTGenerator(feature_maps=self.g_feature_maps).to(self.device)
+        self.discriminator = AOTDiscriminator(feature_maps=self.d_feature_maps).to(self.device)
         self.mask_transform = self._initialize_transforms()
 
     def _initialize_transforms(self):
