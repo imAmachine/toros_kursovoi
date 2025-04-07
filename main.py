@@ -82,6 +82,7 @@ def main():
         output_path=WEIGHTS_PATH,
         epochs=25,
         batch_size=2,
+        load_weights=False
     )
 
     trainer.train()

@@ -80,7 +80,7 @@ def my_layer_norm(feat):
     return feat
 
 import torch.nn as nn
-class AOTDiscriminator(torch.nn.Module):
+class AOTDiscriminator(BaseNetwork):
     def __init__(self, input_channels=1, feature_maps=64):
         super(AOTDiscriminator, self).__init__()
         self.model = nn.Sequential(
@@ -94,6 +94,8 @@ class AOTDiscriminator(torch.nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(feature_maps*8, 1, 4, stride=1, padding=1),
         )
+
+        self.init_weights()
     
     def forward(self, x):
         return self.model(x)

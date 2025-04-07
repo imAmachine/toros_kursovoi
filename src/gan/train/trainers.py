@@ -37,9 +37,9 @@ class GeneratorModelTrainer(IModelTrainer):
         # Correct loss calculations
         # Use element-wise multiplication instead of boolean indexing
         losses = {}
-        losses['l1'] = self.l1_loss(fake_images * masks, targets * masks) * self.lambda_l1
-        losses['perceptual'] = self.perceptual_loss(fake_images * masks, targets * masks) * self.lambda_perceptual
-        losses['style'] = self.style_loss(fake_images * masks, targets * masks) * self.lambda_style
+        losses['l1'] = self.l1_loss(fake_images, targets) * self.lambda_l1
+        losses['perceptual'] = self.perceptual_loss(fake_images, targets) * self.lambda_perceptual
+        losses['style'] = self.style_loss(fake_images, targets) * self.lambda_style
         losses['fd'] = self.fractal_loss(fake_images, targets, masks) * self.lambda_fd
         
         _, gen_loss = self.adv_loss(self.discriminator, comp_images, targets, masks)
