@@ -8,8 +8,9 @@ import random
 
 
 class IceRidgeDataset(Dataset):
-    def __init__(self, metadata: Dict, dataset_processor: IProcessor = None, transform=None):
+    def __init__(self, metadata: Dict, dataset_processor = None, with_target=False, transform=None):
         self.processor = dataset_processor
+        self.with_target = with_target
         self.metadata = metadata
         self.transform = transform
         self.image_keys = list(metadata.keys())
@@ -29,7 +30,7 @@ class IceRidgeDataset(Dataset):
         ret, binary_image = cv2.threshold(orig_image, threshold_value, 255, cv2.THRESH_BINARY)
         
         # Обработка изображения с помощью processor (например, выделение повреждений и маски)
-        damaged, mask = self.processor.process(binary_image)
+        damaged, mask = self.processor.process(binary_image, add_target=self.with_target)
         
         # Конвертируем изображения в тензоры
         damaged_tensor = self._image_to_tensor(damaged)

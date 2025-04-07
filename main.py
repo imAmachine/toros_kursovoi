@@ -69,7 +69,7 @@ def prepare_data(generate=True, model_transforms=None):
 def main():
     gan = GANModel(
         generator=Generator(input_channels=2, feature_maps=32),
-        discriminator=Discriminator(input_channels=1, feature_maps=32),
+        discriminator=Discriminator(input_channels=1, feature_maps=16),
         device='cuda' if torch.cuda.is_available() else 'cpu',
         target_image_size=224
     )

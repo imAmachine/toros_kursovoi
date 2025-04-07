@@ -24,7 +24,7 @@ class GeneratorModelTrainer(IModelTrainer):
     def __init__(self, model, discriminator, optimizer=None, lambda_l1=100, lambda_perceptual=10, lambda_style=1, lambda_fd=1):
         self.model = model
         self.discriminator = discriminator
-        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0002, betas=(0.5, 0.999))
+        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.002, betas=(0.5, 0.999))
         
         self.lambda_l1 = lambda_l1
         self.lambda_perceptual = lambda_perceptual
@@ -62,26 +62,29 @@ class GeneratorModelTrainer(IModelTrainer):
         # Генерируем изображение
         composite, generated = self.model(inputs, masks)
         
+        masked_targets = targets * masks
+        masked_generated = generated * masks
+        
         # Adversarial loss
-        fake_pred = self.discriminator(generated)
+        fake_pred = self.discriminator(masked_generated)
         real_label = torch.ones_like(fake_pred, device=fake_pred.device)
         gen_adv_loss = self.adv_criterion(fake_pred, real_label)
         
         # L1 loss
-        gen_l1_loss = self.l1_criterion(generated * masks, targets * masks) * self.lambda_l1
+        gen_l1_loss = self.l1_criterion(masked_generated, masked_targets) * self.lambda_l1
         
         # Perceptual loss (если применимо)
         gen_perceptual_loss = torch.tensor(0.0, device=inputs.device)
         if self.lambda_perceptual > 0 and self.feature_extractor is not None:
-            real_features = self.feature_extractor(targets)
-            fake_features = self.feature_extractor(generated)
+            real_features = self.feature_extractor(masked_targets)
+            fake_features = self.feature_extractor(masked_generated)
             gen_perceptual_loss = self.l1_criterion(fake_features, real_features) * self.lambda_perceptual
         
         # Style loss (если применимо)
         gen_style_loss = torch.tensor(0.0, device=inputs.device)
         if self.lambda_style > 0 and self.feature_extractor is not None:
-            real_features = self.feature_extractor(targets)
-            fake_features = self.feature_extractor(generated)
+            real_features = self.feature_extractor(masked_targets)
+            fake_features = self.feature_extractor(masked_generated)
             real_gram = self._gram_matrix(real_features)
             fake_gram = self._gram_matrix(fake_features)
             gen_style_loss = self.l1_criterion(fake_gram, real_gram) * self.lambda_style
@@ -89,7 +92,7 @@ class GeneratorModelTrainer(IModelTrainer):
         # Feature distribution loss (если применимо)
         gen_fd_loss = torch.tensor(0.0, device=inputs.device)
         if self.lambda_fd > 0 and fd is not None:
-            gen_fd_loss = fd(generated * masks, targets * masks) * self.lambda_fd
+            gen_fd_loss = fd(masked_generated, masked_targets) * self.lambda_fd
         
         # Общая потеря
         gen_total_loss = gen_adv_loss + gen_l1_loss + gen_perceptual_loss + gen_style_loss + gen_fd_loss
@@ -133,12 +136,12 @@ class DiscriminatorModelTrainer(IModelTrainer):
         
         # Реальное изображение
         real_pred = self.model(targets)
-        real_label = torch.ones_like(real_pred, device=real_pred.device)
+        real_label = torch.zeros_like(real_pred, device=real_pred.device)
         real_loss = self.criterion(real_pred, real_label)
         
         # Поддельное изображение
         fake_pred = self.model(fake_images.detach())  # .detach() для отрыва от графа вычислений генератора
-        fake_label = torch.zeros_like(fake_pred, device=fake_pred.device)
+        fake_label = torch.ones_like(fake_pred, device=fake_pred.device)
         fake_loss = self.criterion(fake_pred, fake_label)
         
         # Общая потеря

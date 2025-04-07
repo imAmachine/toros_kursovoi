@@ -1,45 +1,11 @@
 import os
 import torch
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from src.gan.train.trainers import DiscriminatorModelTrainer, GeneratorModelTrainer
 from src.datasets.dataset import IceRidgeDataset
 from tqdm import tqdm
-import numpy as np
 from skimage.metrics import structural_similarity as ssim
-
-def _calculate_dice_score(real, generated):
-    dice_scores = []
-    for pred, gt in zip(generated, real):
-        pred_np = pred.squeeze().cpu().detach().numpy().round().astype(np.uint8)
-        gt_np = gt.squeeze().cpu().numpy().round().astype(np.uint8)
-        
-        intersection = (pred_np & gt_np).sum()
-        dice = (2. * intersection) / (pred_np.sum() + gt_np.sum() + 1e-6)
-        dice_scores.append(dice)
-    return sum(dice_scores) / len(dice_scores)
-
-def _calculate_iou(real, generated):
-    iou_scores = []
-    for pred, gt in zip(generated, real):
-        pred_np = pred.squeeze().cpu().detach().numpy().round().astype(np.uint8)
-        gt_np = gt.squeeze().cpu().numpy().round().astype(np.uint8)
-        
-        intersection = (pred_np & gt_np).sum()
-        union = (pred_np | gt_np).sum()
-        iou = intersection / (union + 1e-6)
-        iou_scores.append(iou)
-    return sum(iou_scores) / len(iou_scores)
-
-def _calculate_ssim(real, generated):
-    ssim_scores = []
-    for pred, gt in zip(generated, real):
-        pred_np = pred.squeeze().cpu().detach().numpy().astype(np.float32)
-        gt_np = gt.squeeze().cpu().numpy().astype(np.float32)
-        score = ssim(gt_np, pred_np, data_range=1.0)
-        ssim_scores.append(score)
-    return sum(ssim_scores) / len(ssim_scores)
 
 
 class GANTrainer:
@@ -88,8 +54,8 @@ class GANTrainer:
 
     def prepare_dataloaders(self):
         train_metadata, val_metadata = self.dataset.split_dataset(self.dataset.metadata, val_ratio=0.2)
-        train_dataset = IceRidgeDataset(train_metadata, dataset_processor=self.dataset.processor)
-        val_dataset = IceRidgeDataset(val_metadata, dataset_processor=self.dataset.processor)
+        train_dataset = IceRidgeDataset(train_metadata, dataset_processor=self.dataset.processor, with_target=True)
+        val_dataset = IceRidgeDataset(val_metadata, dataset_processor=self.dataset.processor, with_target=False)
         
         train_loader = DataLoader(
             train_dataset,

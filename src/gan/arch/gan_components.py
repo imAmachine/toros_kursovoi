@@ -79,7 +79,7 @@ class Generator(nn.Module):
         output = self.final(d3)    # [batch, 1, H, W]
         
         # Комбинируем оригинальное изображение и сгенерированную часть
-        composite = x * (1 - mask) + output * mask
+        composite = x *  mask + output * mask
         
         return composite, output
 
