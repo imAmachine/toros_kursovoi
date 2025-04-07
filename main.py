@@ -8,7 +8,7 @@ from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
 from src.gan.arch.gan_components import AOTDiscriminator, AOTGenerator
 from src.datasets.dataset import IceRidgeDataset
-from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
+from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor, RandomHoleProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH
 
 import albumentations as A
@@ -20,6 +20,7 @@ def init_preprocessor():
         RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
         CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
         #FractalDimensionProcessor() # вычисление фрактальной размерности
+        # не работает RandomHoleProcessor(num_holes=1, hole_size_range=(20, 40))
     ])
     return preprocessor
 
@@ -66,7 +67,7 @@ def prepare_data(generate=True):
 
 
 def main():
-    dataset = prepare_data(generate=False)
+    dataset = prepare_data(generate=True)
     
     # 7.2gb VRAM 
     gan = GANModel(
