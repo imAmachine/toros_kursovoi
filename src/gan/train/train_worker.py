@@ -5,11 +5,8 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from src.gan.train.trainers import DiscriminatorModelTrainer, GeneratorModelTrainer
 from src.datasets.dataset import IceRidgeDataset
-from src.gan.arch.gan import GANModel
-from src.analyzer.fractal_funcs import FractalAnalyzer
 from tqdm import tqdm
 import numpy as np
-import torch.nn as nn
 from skimage.metrics import structural_similarity as ssim
 
 def _calculate_dice_score(real, generated):
@@ -120,8 +117,8 @@ class GANTrainer:
             
             progress = tqdm(train_loader, desc=f"Epoch {epoch+1}")
 
-            epoch_g_loss = 0.0
-            epoch_d_loss = 0.0
+            epoch_g_losses = {"total_loss": 0.0}
+            epoch_d_losses = {"total_loss": 0.0}
             
             for inputs, targets, masks in progress:
                 inputs = inputs.to(self.device)
@@ -129,25 +126,34 @@ class GANTrainer:
                 masks = masks.to(self.device)
                 
                 # Обучение генератора
-                g_loss, fake_images = self.g_trainer.train_pipeline_step(inputs, masks, targets)
+                g_loss_dict, fake_images = self.g_trainer.train_pipeline_step(inputs, masks, targets)
                 
                 # Обучение дискриминатора
-                d_loss = self.d_trainer.train_pipeline_step(targets, fake_images, masks)
+                d_loss_dict = self.d_trainer.train_pipeline_step(targets, fake_images, masks)
 
-                epoch_g_loss += g_loss
-                epoch_d_loss += d_loss
+                # Обновление суммы потерь за эпоху
+                for key, value in g_loss_dict.items():
+                    epoch_g_losses[key] = epoch_g_losses.get(key, 0.0) + value
                 
-                progress.set_postfix({"G_loss": g_loss, "D_loss": d_loss})
+                for key, value in d_loss_dict.items():
+                    epoch_d_losses[key] = epoch_d_losses.get(key, 0.0) + value
+                
+                progress.set_postfix({
+                    "G_loss": g_loss_dict["total_loss"], 
+                    "D_loss": d_loss_dict["total_loss"]
+                })
             
             # Средние значения loss за эпоху
-            epoch_g_loss /= len(train_loader)
-            epoch_d_loss /= len(train_loader)
+            for key in epoch_g_losses:
+                epoch_g_losses[key] /= len(train_loader)
             
-            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {epoch_g_loss:.4f}, D_loss: {epoch_d_loss:.4f}")
+            for key in epoch_d_losses:
+                epoch_d_losses[key] /= len(train_loader)
+            
+            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {epoch_g_losses['total_loss']:.4f}, D_loss: {epoch_d_losses['total_loss']:.4f}")
             self._save_models()
             
-            
-            # нужно убрать этот страх===============================================================================
+            # Валидация и визуализация результатов
             with torch.no_grad():
                 self.model.generator.eval()
                 self.model.discriminator.eval()
@@ -161,31 +167,37 @@ class GANTrainer:
                     val_masks = val_masks.to(self.device)
                     
                     # Генерация изображений
-                    generated_val = self.model.generator(val_inputs, val_masks)
+                    composite, generated_val = self.model.generator(val_inputs, val_masks)
                     
                     # Визуализация
-                    plt.figure(figsize=(15, 10))
+                    plt.figure(figsize=(15, 15))
                     for i in range(min(5, len(val_inputs))):  # Первые 5 изображений
-                        # Исходное изображение
-                        plt.subplot(3, 5, i + 1)
+                        # Исходное изображение с маской
+                        plt.subplot(4, 5, i + 1)
                         plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
                         plt.title(f'Input [Batch {batch_idx}]')
                         plt.axis('off')
                         
+                        # Маска
+                        plt.subplot(4, 5, i + 6)
+                        plt.imshow(val_masks[i].cpu().squeeze().numpy(), cmap='gray')
+                        plt.title(f'Mask [Batch {batch_idx}]')
+                        plt.axis('off')
+                        
                         # Сгенерированное изображение
-                        plt.subplot(3, 5, i + 6)
+                        plt.subplot(4, 5, i + 11)
                         plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
                         plt.title(f'Generated [Batch {batch_idx}]')
                         plt.axis('off')
                         
                         # Целевое изображение
-                        plt.subplot(3, 5, i + 11)
+                        plt.subplot(4, 5, i + 16)
                         plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
                         plt.title(f'Target [Batch {batch_idx}]')
                         plt.axis('off')
                     
                     plt.tight_layout()
-                    plt.savefig(os.path.join(self.output_path, 'samples.png'), dpi=300)
+                    plt.savefig(os.path.join(self.output_path, f'samples_epoch.png'), dpi=300)
                     plt.close()
-        
+            
         return self.g_trainer.loss_history, self.d_trainer.loss_history

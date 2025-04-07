@@ -6,7 +6,7 @@ from src.gan.arch.gan import GANModel
 from src.gan.train.train_worker import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
-from src.gan.arch.gan_components import AOTDiscriminator, AOTGenerator
+from src.gan.arch.gan_components import Discriminator, Generator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH
@@ -43,12 +43,12 @@ def gen_dataset():
         
         # Обрезка и изменение размера для симуляции разных масштабов съемки
         A.RandomCrop(height=512, width=512, p=0.5),
-        A.Resize(height=512, width=512, interpolation=cv2.INTER_LANCZOS4, p=1)
+        A.Resize(height=1024, width=1024, interpolation=cv2.INTER_LANCZOS4, p=1)
     ])
     
     return IceRidgeDatasetGenerator(augmentation_pipeline)
 
-def prepare_data(generate=True):
+def prepare_data(generate=True, model_transforms=None):
     metadata_json_path = os.path.join(AUGMENTED_DATASET_FOLDER_PATH, 'metadata_dump.json')
     if generate:
         metadata = init_preprocessor().process_folder(MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, ['.png'])
@@ -61,20 +61,20 @@ def prepare_data(generate=True):
             generated_metadata = json.load(f)
 
     dataset = IceRidgeDataset(metadata=generated_metadata, 
-                            dataset_processor=ShiftProcessor(shift_percent=0.15))
+                            dataset_processor=ShiftProcessor(shift_percent=0.15),
+                            transform=model_transforms)
     return dataset
 
 
 def main():
-    dataset = prepare_data(generate=False)
-    
-    # 7.2gb VRAM 
     gan = GANModel(
-        generator=AOTGenerator(rates=[1, 2, 4, 8], block_num=4, input_channels=2, feature_maps=64),
-        discriminator=AOTDiscriminator(input_channels=1, feature_maps=8),
+        generator=Generator(input_channels=2, feature_maps=32),
+        discriminator=Discriminator(input_channels=1, feature_maps=32),
         device='cuda' if torch.cuda.is_available() else 'cpu',
         target_image_size=224
     )
+    dataset = prepare_data(generate=True, 
+                           model_transforms=gan.get_transforms())
 
     trainer = GANTrainer(
         model=gan,

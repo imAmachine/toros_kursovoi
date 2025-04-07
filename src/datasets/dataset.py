@@ -27,7 +27,6 @@ class IceRidgeDataset(Dataset):
         orig_image = cv2.imread(orig_path, cv2.IMREAD_GRAYSCALE)
         threshold_value = 127
         ret, binary_image = cv2.threshold(orig_image, threshold_value, 255, cv2.THRESH_BINARY)
-        # binary_image = cv2.bitwise_not(binary_image) # инверсия бинарного снимка
         
         # Обработка изображения с помощью processor (например, выделение повреждений и маски)
         damaged, mask = self.processor.process(binary_image)

@@ -1,101 +1,117 @@
 import torch
-import torch.nn.functional as F
-from torch.nn.utils import spectral_norm
-from .common import BaseNetwork
 import torch.nn as nn
 
-class AOTGenerator(BaseNetwork):
-    def __init__(self, rates, block_num, input_channels=2, feature_maps=64):
-        super(AOTGenerator, self).__init__()
 
-        self.encoder = nn.Sequential(
-            nn.ReflectionPad2d(3),
-            nn.Conv2d(input_channels, feature_maps, 7),
-            nn.ReLU(True),
-            nn.Conv2d(feature_maps, feature_maps*2, 4, stride=2, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(feature_maps*2, feature_maps*4, 4, stride=2, padding=1),
-            nn.ReLU(True),
-        )
-
-        self.middle = nn.Sequential(*[AOTBlock(feature_maps*4, rates) for _ in range(block_num)])
-
-        self.decoder = nn.Sequential(
-            UpConv(feature_maps*4, feature_maps*2), 
-            nn.ReLU(True), 
-            UpConv(feature_maps*2, feature_maps), 
-            nn.ReLU(True), 
-            nn.Conv2d(feature_maps, 1, 3, stride=1, padding=1)
-        )
-
-        self.init_weights()
-
-    def forward(self, x, mask):
-        x = torch.cat([x, mask], dim=1)
-        x = self.encoder(x)
-        x = self.middle(x)
-        x = self.decoder(x)
-        x = torch.tanh(x)
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, padding=1, use_bn=True, activation=None):
+        super(ConvBlock, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=not use_bn)
+        self.bn = nn.BatchNorm2d(out_channels) if use_bn else None
+        self.activation = activation
+        
+    def forward(self, x):
+        x = self.conv(x)
+        if self.bn:
+            x = self.bn(x)
+        if self.activation:
+            x = self.activation(x)
         return x
 
 
-class UpConv(nn.Module):
-    def __init__(self, inc, outc, scale=2):
-        super(UpConv, self).__init__()
-        self.scale = scale
-        self.conv = nn.Conv2d(inc, outc, 3, stride=1, padding=1)
-
-    def forward(self, x):
-        return self.conv(F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=True))
-
-
-class AOTBlock(nn.Module):
-    def __init__(self, dim, rates):
-        super(AOTBlock, self).__init__()
-        self.rates = rates
-        for i, rate in enumerate(rates):
-            self.__setattr__(
-                "block{}".format(str(i).zfill(2)),
-                nn.Sequential(
-                    nn.ReflectionPad2d(rate), nn.Conv2d(dim, dim // 4, 3, padding=0, dilation=rate), nn.ReLU(True)
-                ),
-            )
-        self.fuse = nn.Sequential(nn.ReflectionPad2d(1), nn.Conv2d(dim, dim, 3, padding=0, dilation=1))
-        self.gate = nn.Sequential(nn.ReflectionPad2d(1), nn.Conv2d(dim, dim, 3, padding=0, dilation=1))
-
-    def forward(self, x):
-        out = [self.__getattr__(f"block{str(i).zfill(2)}")(x) for i in range(len(self.rates))]
-        out = torch.cat(out, 1)
-        out = self.fuse(out)
-        mask = my_layer_norm(self.gate(x))
-        mask = torch.sigmoid(mask)
-        return x * (1 - mask) + out * mask
-
-
-def my_layer_norm(feat):
-    mean = feat.mean((2, 3), keepdim=True)
-    std = feat.std((2, 3), keepdim=True) + 1e-9
-    feat = 2 * (feat - mean) / std - 1
-    feat = 5 * feat
-    return feat
-
-import torch.nn as nn
-class AOTDiscriminator(BaseNetwork):
-    def __init__(self, input_channels=1, feature_maps=64):
-        super(AOTDiscriminator, self).__init__()
-        self.model = nn.Sequential(
-            spectral_norm(nn.Conv2d(input_channels, feature_maps, 4, stride=2, padding=1, bias=False)),
-            nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(feature_maps, feature_maps*2, 4, stride=2, padding=1, bias=False)),
-            nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(feature_maps*2, feature_maps*4, 4, stride=2, padding=1, bias=False)),
-            nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(feature_maps*4, feature_maps*8, 4, stride=1, padding=1, bias=False)),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(feature_maps*8, 1, 4, stride=1, padding=1),
+class Generator(nn.Module):
+    def __init__(self, input_channels=2, feature_maps=64):
+        super(Generator, self).__init__()
+        
+        # Энкодер
+        self.enc1 = ConvBlock(input_channels, feature_maps, use_bn=False, activation=nn.LeakyReLU(0.2))
+        self.enc2 = ConvBlock(feature_maps, feature_maps*2, activation=nn.LeakyReLU(0.2))
+        self.enc3 = ConvBlock(feature_maps*2, feature_maps*4, activation=nn.LeakyReLU(0.2))
+        self.enc4 = ConvBlock(feature_maps*4, feature_maps*8, activation=nn.LeakyReLU(0.2))
+        
+        # Декодер с пропускными соединениями
+        self.dec1 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*8, feature_maps*4, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps*4),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5)
         )
+        
+        self.dec2 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*8, feature_maps*2, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps*2),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5)
+        )
+        
+        self.dec3 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*4, feature_maps, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps),
+            nn.ReLU(inplace=True)
+        )
+        
+        # Выходной слой
+        self.final = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*2, 1, kernel_size=4, stride=2, padding=1),
+            nn.Sigmoid()
+        )
+        
+    def forward(self, x, mask):
+        # Объединяем входное изображение и маску
+        x_combined = torch.cat([x, mask], dim=1)
+        
+        # Кодирование
+        e1 = self.enc1(x_combined)  # [batch, feature_maps, H/2, W/2]
+        e2 = self.enc2(e1)          # [batch, feature_maps*2, H/4, W/4]
+        e3 = self.enc3(e2)          # [batch, feature_maps*4, H/8, W/8]
+        e4 = self.enc4(e3)          # [batch, feature_maps*8, H/16, W/16]
+        
+        # Декодирование с пропускными соединениями
+        d1 = self.dec1(e4)          # [batch, feature_maps*4, H/8, W/8]
+        d1 = torch.cat([d1, e3], dim=1)  # [batch, feature_maps*8, H/8, W/8]
+        
+        d2 = self.dec2(d1)          # [batch, feature_maps*2, H/4, W/4]
+        d2 = torch.cat([d2, e2], dim=1)  # [batch, feature_maps*4, H/4, W/4]
+        
+        d3 = self.dec3(d2)          # [batch, feature_maps, H/2, W/2]
+        d3 = torch.cat([d3, e1], dim=1)  # [batch, feature_maps*2, H/2, W/2]
+        
+        # Финальный выход
+        output = self.final(d3)    # [batch, 1, H, W]
+        
+        # Комбинируем оригинальное изображение и сгенерированную часть
+        composite = x * (1 - mask) + output * mask
+        
+        return composite, output
 
-        self.init_weights()
+
+class Discriminator(nn.Module):
+    def __init__(self, input_channels=1, feature_maps=64):
+        super(Discriminator, self).__init__()
+        
+        # PatchGAN дискриминатор
+        self.layer1 = ConvBlock(input_channels, feature_maps, 
+                               kernel_size=4, stride=2, padding=1, 
+                               use_bn=False, activation=nn.LeakyReLU(0.2))
+        
+        self.layer2 = ConvBlock(feature_maps, feature_maps*2, 
+                               kernel_size=4, stride=2, padding=1, 
+                               use_bn=True, activation=nn.LeakyReLU(0.2))
+        
+        self.layer3 = ConvBlock(feature_maps*2, feature_maps*4, 
+                               kernel_size=4, stride=2, padding=1, 
+                               use_bn=True, activation=nn.LeakyReLU(0.2))
+        
+        self.layer4 = ConvBlock(feature_maps*4, feature_maps*8, 
+                               kernel_size=4, stride=1, padding=1, 
+                               use_bn=True, activation=nn.LeakyReLU(0.2))
+        
+        # Финальный слой для классификации патчей
+        self.final = nn.Conv2d(feature_maps*8, 1, kernel_size=4, stride=1, padding=1)
     
     def forward(self, x):
-        return self.model(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.final(x)
+        return x
