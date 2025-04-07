@@ -23,18 +23,21 @@ class IceRidgeDataset(Dataset):
         orig_meta = self.metadata[key]
         orig_path = orig_meta.get('output_path')
         
+        # Чтение оригинального изображения
         orig_image = cv2.imread(orig_path, cv2.IMREAD_GRAYSCALE)
+        threshold_value = 127
+        ret, binary_image = cv2.threshold(orig_image, threshold_value, 255, cv2.THRESH_BINARY)
+        # binary_image = cv2.bitwise_not(binary_image) # инверсия бинарного снимка
         
-        if orig_image is None:
-            raise ValueError(f"Не удалось загрузить изображение: {orig_path}")
+        # Обработка изображения с помощью processor (например, выделение повреждений и маски)
+        damaged, mask = self.processor.process(binary_image)
         
-        damaged_image, damage_mask = self.processor.process(orig_image)
+        # Конвертируем изображения в тензоры
+        damaged_tensor = self._image_to_tensor(damaged)
+        original_tensor = self._image_to_tensor(binary_image)
+        mask_tensor = self._image_to_tensor(mask)
         
-        # Преобразование в тензоры
-        damaged_tensor = self._image_to_tensor(damaged_image)
-        original_tensor = self._image_to_tensor(orig_image)
-        mask_tensor = self._image_to_tensor(damage_mask)
-        
+        # Применяем преобразования (если они есть)
         if self.transform:
             damaged_tensor = self.transform(damaged_tensor)
             original_tensor = self.transform(original_tensor)
@@ -44,7 +47,7 @@ class IceRidgeDataset(Dataset):
     
     def _image_to_tensor(self, img: np.ndarray) -> torch.Tensor:
         """Конвертация numpy array в тензор PyTorch"""
-        return torch.from_numpy(img).float().unsqueeze(0) / 255.0
+        return torch.from_numpy(img).unsqueeze(0).float()
     
     @staticmethod
     def split_dataset(metadata: Dict, val_ratio=0.2, seed=42) -> Tuple[Dict, Dict]:

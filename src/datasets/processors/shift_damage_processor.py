@@ -12,23 +12,24 @@ class ShiftProcessor(IProcessor):
     def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple:
         h, w = image.shape
         
-        damaged = image.copy()
+        damaged = (image.astype(np.float32) / 255.0)
+
         damage_mask = np.zeros_like(image)
         damage_size = int(max(h, w) * self.shift_percent)
         direction = np.random.choice(self.DIRECTIONS)
         
+        damage_mask_val = 1.0
+        
         if direction == 'top':
-            damaged[:damage_size, :] = 0
-            damage_mask[:damage_size, :] = 255
+            damage_mask[:damage_size, :] = damage_mask_val
         elif direction == 'bottom':
-            damaged[-damage_size:, :] = 0
-            damage_mask[-damage_size:, :] = 255
+            damage_mask[-damage_size:, :] = damage_mask_val
         elif direction == 'left':
-            damaged[:, :damage_size] = 0
-            damage_mask[:, :damage_size] = 255
+            damage_mask[:, :damage_size] = damage_mask_val
         elif direction == 'right':
-            damaged[:, -damage_size:] = 0
-            damage_mask[:, -damage_size:] = 255
+            damage_mask[:, -damage_size:] = damage_mask_val
+        
+        damaged = damaged * (1 - damage_mask)
             
         return damaged, damage_mask
     

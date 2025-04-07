@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -102,3 +103,43 @@ class smgan:
         gen_loss = self.loss_fn(g_fake, g_fake_label) * masks / torch.mean(masks)
 
         return dis_loss.mean(), gen_loss.mean()
+
+
+class FractalLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, fake, target, mask):
+        b, c, h, w = fake.shape
+        loss = 0.0
+        for i in range(b):
+            fake_region = fake[i].mean(dim=0) * mask[i, 0]
+            target_region = target[i].mean(dim=0) * mask[i, 0]
+
+            fd_fake = self.box_count(fake_region)
+            fd_target = self.box_count(target_region)
+
+            loss += abs(fd_fake - fd_target)
+        return loss / b
+
+    def box_count(self, img, threshold=0.5):
+        sizes = [2, 4, 8, 16, 32]
+        counts = []
+
+        img_np = img.detach().cpu().numpy()
+        img_np = (img_np > threshold).astype(np.uint8)
+
+        for size in sizes:
+            count = 0
+            for i in range(0, img_np.shape[0], size):
+                for j in range(0, img_np.shape[1], size):
+                    patch = img_np[i:i + size, j:j + size]
+                    if patch.any():
+                        count += 1
+            counts.append(count)
+
+        log_sizes = np.log(np.array(sizes))
+        log_counts = np.log(np.array(counts) + 1e-8)
+
+        coeffs = np.polyfit(log_sizes, log_counts, 1)
+        return -coeffs[0]

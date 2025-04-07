@@ -1,6 +1,5 @@
 import torch
 from torchvision.transforms import transforms
-from .gan_components import AOTDiscriminator, InpaintGenerator
 
 
 class GANModel:

@@ -6,7 +6,7 @@ from src.gan.arch.gan import GANModel
 from src.gan.train.train_worker import GANTrainer
 from src.datasets.processors.shift_damage_processor import ShiftProcessor
 from src.datasets.ice_ridge_dataset_generator import IceRidgeDatasetGenerator
-from src.gan.arch.gan_components import AOTDiscriminator, InpaintGenerator
+from src.gan.arch.gan_components import AOTDiscriminator, AOTGenerator
 from src.datasets.dataset import IceRidgeDataset
 from src.preprocessing import CropProcessor, EnchanceProcessor, RotateMaskProcessor, MasksPreprocessor, AngleChooseType, FractalDimensionProcessor
 from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, GENERATED_GAN_PATH, WEIGHTS_PATH
@@ -48,34 +48,30 @@ def gen_dataset():
     
     return IceRidgeDatasetGenerator(augmentation_pipeline)
 
-def prepare_data():
-    metadata = init_preprocessor().process_folder(MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, ['.png'])
-    generated_metadata = gen_dataset().generate(AUGMENTED_DATASET_FOLDER_PATH, metadata)
+def prepare_data(generate=True):
     metadata_json_path = os.path.join(AUGMENTED_DATASET_FOLDER_PATH, 'metadata_dump.json')
-    
-    with open(metadata_json_path, 'w+', encoding='utf8') as f:
-        json.dump(generated_metadata, f, indent=4, ensure_ascii=False)
+    if generate:
+        metadata = init_preprocessor().process_folder(MASKS_FOLDER_PATH, PREPROCESSED_MASKS_FOLDER_PATH, ['.png'])
+        generated_metadata = gen_dataset().generate(AUGMENTED_DATASET_FOLDER_PATH, metadata)
+        
+        with open(metadata_json_path, 'w+', encoding='utf8') as f:
+            json.dump(generated_metadata, f, indent=4, ensure_ascii=False)
+    else:
+        with open(metadata_json_path, 'r', encoding='utf8') as f:
+            generated_metadata = json.load(f)
 
     dataset = IceRidgeDataset(metadata=generated_metadata, 
-                              dataset_processor=ShiftProcessor(shift_percent=0.15))
+                            dataset_processor=ShiftProcessor(shift_percent=0.15))
     return dataset
 
 
 def main():
-    dataset = prepare_data()
-
-    # Создаем генератор и дискриминатор AOT-GAN
-    class Args:
-        block_num = 8
-        rates = [1, 2, 4, 8]
-
-    args = Args()
-    generator = InpaintGenerator(args)
-    discriminator = AOTDiscriminator()
-
+    dataset = prepare_data(generate=True)
+    
+    # 7.2gb VRAM 
     gan = GANModel(
-        generator=generator,
-        discriminator=discriminator,
+        generator=AOTGenerator(rates=[1, 2, 4, 8], block_num=4, input_channels=2, feature_maps=64),
+        discriminator=AOTDiscriminator(input_channels=1, feature_maps=8),
         device='cuda' if torch.cuda.is_available() else 'cpu',
         target_image_size=224
     )
@@ -84,7 +80,7 @@ def main():
         model=gan,
         dataset=dataset,
         output_path=WEIGHTS_PATH,
-        epochs=5,
+        epochs=25,
         batch_size=2,
     )
 

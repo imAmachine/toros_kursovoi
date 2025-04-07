@@ -9,7 +9,7 @@ from src.gan.arch.gan import GANModel
 from src.analyzer.fractal_funcs import FractalAnalyzer
 from tqdm import tqdm
 import numpy as np
-
+import torch.nn as nn
 from skimage.metrics import structural_similarity as ssim
 
 def _calculate_dice_score(real, generated):
@@ -44,29 +44,13 @@ def _calculate_ssim(real, generated):
         ssim_scores.append(score)
     return sum(ssim_scores) / len(ssim_scores)
 
-def _calculate_fractal_loss(real, generated):
-        batch_loss = 0.0
-        for gen, gt in zip(generated, real):
-            # Конвертация тензоров в numpy массивы
-            gen_np = gen.squeeze().cpu().detach().numpy().round().astype(np.uint8)
-            gt_np = gt.squeeze().cpu().numpy().round().astype(np.uint8)
-            
-            # Расчет ФР
-            sizes_gen, counts_gen = FractalAnalyzer.box_counting(gen_np)
-            sizes_gt, counts_gt = FractalAnalyzer.box_counting(gt_np)
-            
-            fd_gen = FractalAnalyzer.calculate_fractal_dimension(sizes_gen, counts_gen)
-            fd_gt = FractalAnalyzer.calculate_fractal_dimension(sizes_gt, counts_gt)
-            
-            batch_loss += F.l1_loss(torch.tensor(fd_gen), torch.tensor(fd_gt))
-        
-        return batch_loss / len(generated)
 
 class GANTrainer:
     def __init__(self, model, dataset, output_path, epochs=10, batch_size=8, load_weights=True):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
         self.load_weights = load_weights
+        
         # модели тренеров
         self.g_trainer = GeneratorModelTrainer(
             model=model.generator,
@@ -128,14 +112,6 @@ class GANTrainer:
     def train(self):
         train_loader, val_loader = self.prepare_dataloaders()
         
-        # Загрузка весов, если требуется
-        if self.load_weights:
-            try:
-                self._load_weights()
-                print("Веса моделей загружены успешно")
-            except Exception as e:
-                print(f"Ошибка загрузки весов: {e}")
-        
         # Основной цикл обучения
         for epoch in range(self.epochs):
             self.model.generator.train()
@@ -173,11 +149,10 @@ class GANTrainer:
             # нужно убрать этот страх===============================================================================
             with torch.no_grad():
                 self.model.generator.eval()
-                val_g_loss = 0.0
-                total_samples = 0
+                self.model.discriminator.eval()
                 
                 for batch_idx, (val_inputs, val_targets, val_masks) in enumerate(val_loader):
-                    if batch_idx == 2:
+                    if batch_idx == 1:
                         break
                     
                     val_inputs = val_inputs.to(self.device)
@@ -186,15 +161,6 @@ class GANTrainer:
                     
                     # Генерация изображений
                     generated_val = self.model.generator(val_inputs, val_masks)
-                    
-                    # Вычисление метрик
-                    dice = _calculate_dice_score(val_targets, generated_val)
-                    iou = _calculate_iou(val_targets, generated_val)
-                    ssim_score = _calculate_ssim(val_targets, generated_val)
-                    fractal_loss = _calculate_fractal_loss(val_targets, generated_val)
-                    
-                    val_g_loss += dice  # Пример: суммирование одной из метрик
-                    total_samples += val_inputs.size(0)
                     
                     # Визуализация
                     plt.figure(figsize=(15, 10))
@@ -218,28 +184,7 @@ class GANTrainer:
                         plt.axis('off')
                     
                     plt.tight_layout()
-                    plt.savefig(os.path.join(self.output_path, f'epoch_{epoch+1}_batch_{batch_idx}_samples.png'), dpi=300)
+                    plt.savefig(os.path.join(self.output_path, 'samples.png'), dpi=300)
                     plt.close()
-                
-                # Среднее значение по метрикам
-                val_g_loss /= total_samples
-                print(f"[VALIDATION METRICS] Epoch {epoch+1}: Avg Dice: {val_g_loss:.4f}, IoU: {iou:.4f}, SSIM: {ssim_score:.4f}, FractalLoss: {fractal_loss:.4f}")
-        
-        # Графики обучения используя историю из тренеров
-        plt.figure(figsize=(12, 5))
-        plt.subplot(1, 2, 1)
-        plt.plot(self.g_trainer.loss_history, label='Generator')
-        plt.plot(self.d_trainer.loss_history, label='Discriminator')
-        plt.xlabel('Iterations')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.title('Generator and Discriminator Loss')
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.output_path, 'training_history.png'))
-        plt.close()
-        
-        # Сохранение финальных моделей
-        self._save_models()
         
         return self.g_trainer.loss_history, self.d_trainer.loss_history
