@@ -55,9 +55,10 @@ class GANTrainer:
         self.g_trainer = GeneratorModelTrainer(
             model=model.generator,
             discriminator=model.discriminator,
-            lambda_l1=1.0,
+            lambda_l1=0.1,
             lambda_perceptual=0.1,
-            lambda_style=0.1
+            lambda_style=1,
+            lambda_fd=1
         )
         
         self.d_trainer = DiscriminatorModelTrainer(

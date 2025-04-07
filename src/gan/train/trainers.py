@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 from src.gan.arch.loss import FractalLoss, Perceptual, Style, smgan
 
 class GeneratorModelTrainer(IModelTrainer):
-    def __init__(self, model, discriminator, optimizer=None, 
-                 lambda_l1=1, lambda_perceptual=1, lambda_style=1, lambda_fd=1):
+    def __init__(self, model, discriminator, optimizer=None, lambda_l1=1, lambda_perceptual=1, lambda_style=1, lambda_fd=1):
         self.model = model
         self.discriminator = discriminator
         self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0002, betas=(0.5, 0.999))
@@ -44,7 +43,7 @@ class GeneratorModelTrainer(IModelTrainer):
         losses['fd'] = self.fractal_loss(fake_images, targets, masks) * self.lambda_fd
         
         _, gen_loss = self.adv_loss(self.discriminator, comp_images, targets, masks)
-        losses['adv'] = gen_loss
+        losses['adv'] = gen_loss * 0.5
         
         total_loss = sum(losses.values())
         total_loss.backward()

@@ -66,7 +66,7 @@ def prepare_data(generate=True):
 
 
 def main():
-    dataset = prepare_data(generate=True)
+    dataset = prepare_data(generate=False)
     
     # 7.2gb VRAM 
     gan = GANModel(
