@@ -19,9 +19,10 @@ def main():
                         generate_new=False)
     trainer = GANTrainer(model=gan, 
                          dataset_processor=ds,
-                         output_path=GENERATED_GAN_PATH,
+                         output_path=WEIGHTS_PATH,
                          epochs=20000,
-                         batch_size=4)
+                         batch_size=4,
+                         load_weights=True)
 
     trainer.train()
 
