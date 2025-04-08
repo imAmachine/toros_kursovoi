@@ -18,9 +18,9 @@ class ConvBlock(nn.Module):
         return x
 
 
-class Generator(nn.Module):
+class GanGenerator(nn.Module):
     def __init__(self, input_channels=2, feature_maps=64):
-        super(Generator, self).__init__()
+        super(GanGenerator, self).__init__()
         
         # Энкодер
         self.enc1 = ConvBlock(input_channels, feature_maps, use_bn=False, activation=nn.LeakyReLU(0.2))
@@ -84,9 +84,9 @@ class Generator(nn.Module):
         return composite, output
 
 
-class Discriminator(nn.Module):
+class GanDiscriminator(nn.Module):
     def __init__(self, input_channels=1, feature_maps=64):
-        super(Discriminator, self).__init__()
+        super(GanDiscriminator, self).__init__()
         
         # PatchGAN дискриминатор
         self.layer1 = ConvBlock(input_channels, feature_maps, 

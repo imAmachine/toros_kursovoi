@@ -1,0 +1,134 @@
+import os
+import torch
+import torch.nn as nn
+from torchvision.transforms import transforms
+import albumentations as A
+
+from gan.gan_arch import GanDiscriminator, GanGenerator
+from gan.train import GANTrainer
+from .interfaces import IModelTrainer
+
+class GenerativeModel:
+    def __init__(self, target_image_size=224, g_feature_maps=32, d_feature_maps=16):
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.generator = GanGenerator(input_channels=2, feature_maps=g_feature_maps).to(self.device)
+        self.discriminator = GanDiscriminator(input_channels=1, feature_maps=d_feature_maps).to(self.device)
+        
+        self.g_trainer, self.d_trainer = self._init_trainers()
+        
+        self.target_image_size = target_image_size
+
+    def get_transforms(self):
+        return transforms.Compose([
+            transforms.Resize((self.target_image_size, self.target_image_size)),
+            transforms.ToTensor()
+        ])
+
+    def _init_trainers(self):
+        g_trainer = GeneratorModelTrainer(model=self.generator,discriminator=self.discriminator)
+        d_trainer = DiscriminatorModelTrainer(model=self.discriminator)
+        
+        return g_trainer, d_trainer
+    
+    def train_step(self, inputs, targets, masks):
+        g_loss_dict, fake_images = self.g_trainer.train_pipeline_step(inputs, masks, targets)
+        d_loss_dict = self.d_trainer.train_pipeline_step(targets, fake_images, masks)
+        
+        return {'g_losses': g_loss_dict, 'd_losses': d_loss_dict}
+
+
+class GeneratorModelTrainer(IModelTrainer):
+    def __init__(self, model, discriminator):
+        self.model = model
+        self.discriminator = discriminator
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=0.002, betas=(0.5, 0.999))
+        
+        self.adv_criterion = nn.BCEWithLogitsLoss()
+        self.l1_criterion = nn.L1Loss()
+        self.loss_history = []
+
+    def save_model_state_dict(self, output_path):
+        torch.save(self.model.state_dict(), os.path.join(output_path, "generator.pt"))
+    
+    def _gram_matrix(self, features):
+        batch_size, channels, height, width = features.size()
+        features_flat = features.view(batch_size, channels, height * width)
+        features_t = features_flat.transpose(1, 2)
+        gram = features_flat.bmm(features_t) / (channels * height * width)
+        return gram
+    
+    def train_pipeline_step(self, inputs, masks, targets, fd=None):        
+        # Обнуляем градиенты
+        self.optimizer.zero_grad()
+        
+        # Генерируем изображение
+        composite, generated = self.model(inputs, masks)
+        
+        masked_targets = targets * masks
+        masked_generated = generated * masks
+        
+        # Adversarial loss
+        fake_pred = self.discriminator(masked_generated)
+        real_label = torch.ones_like(fake_pred, device=fake_pred.device)
+        gen_adv_loss = self.adv_criterion(fake_pred, real_label)
+        
+        # Общая потеря
+        gen_total_loss = gen_adv_loss
+        
+        # Обратное распространение
+        gen_total_loss.backward()
+        self.optimizer.step()
+        
+        # Сохраняем историю потерь
+        loss_dict = {
+            'adv_loss': gen_adv_loss.item()
+        }
+        self.loss_history.append(loss_dict)
+        
+        return loss_dict, generated
+
+
+class DiscriminatorModelTrainer(IModelTrainer):
+    def __init__(self, model, optimizer=None):
+        self.model = model
+        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0002, betas=(0.5, 0.999))
+        self.criterion = nn.BCEWithLogitsLoss()
+        self.loss_history = []
+
+    def save_model_state_dict(self, output_path):
+        torch.save(self.model.state_dict(), os.path.join(output_path, "discriminator.pt"))
+    
+    def train_pipeline_step(self, targets, fake_images, masks):
+        # Перемещаем данные на устройство
+        targets = targets.to(next(self.model.parameters()).device)
+        fake_images = fake_images.to(next(self.model.parameters()).device)
+        
+        # Обнуляем градиенты
+        self.optimizer.zero_grad()
+        
+        # Реальное изображение
+        real_pred = self.model(targets)
+        real_label = torch.zeros_like(real_pred, device=real_pred.device)
+        real_loss = self.criterion(real_pred, real_label)
+        
+        # Поддельное изображение
+        fake_pred = self.model(fake_images.detach())
+        fake_label = torch.ones_like(fake_pred, device=fake_pred.device)
+        fake_loss = self.criterion(fake_pred, fake_label)
+        
+        # Общая потеря
+        disc_loss = (real_loss + fake_loss) * 0.5
+        
+        # Обратное распространение
+        disc_loss.backward()
+        self.optimizer.step()
+        
+        # Сохраняем историю потерь
+        loss_dict = {
+            'real_loss': real_loss.item(),
+            'fake_loss': fake_loss.item(),
+            'total_loss': disc_loss.item()
+        }
+        self.loss_history.append(loss_dict)
+        
+        return loss_dict

@@ -3,8 +3,7 @@ from typing import Any, Dict, List
 import cv2
 import numpy as np
 
-from .interfaces.IProcessor import IProcessor
-
+from .interfaces import IProcessor
 
 
 class MasksPreprocessor:

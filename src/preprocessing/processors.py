@@ -1,10 +1,41 @@
-from typing import Any, Dict
 from enum import Enum
+from typing import Any, Dict
 import cv2
 import numpy as np
 
-from ..utils import ImageProcess, RotationAnalyze
-from ..interfaces.IProcessor import IProcessor
+from analyzer.fractal_funcs import FractalAnalyzer
+from analyzer.rotation_analyze import RotationAnalyze
+from .interfaces import IProcessor
+from .utils import ImageProcess
+
+
+class CropProcessor(IProcessor):
+    METADATA_NAME = 'crop'
+    
+    def __init__(self, crop_percent = 0):
+        self.crop_percent = crop_percent
+        
+    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
+        cropped = ImageProcess.crop_image(image, self.crop_percent)
+        adjusted = ImageProcess.auto_adjust(cropped)
+        metadata.update({self.METADATA_NAME: True})
+        
+        return adjusted, metadata
+
+
+class EnchanceProcessor(IProcessor):
+    METADATA_NAME = 'morphing'
+    
+    def __init__(self, morph_kernel_size=5):
+        self.morph_kernel_size = morph_kernel_size
+        
+    
+    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
+        bin_image = ImageProcess.binarize_by_threshold(image)
+        morph_img = ImageProcess.morph_bin_image(bin_image, ksize=self.morph_kernel_size)
+        metadata.update({self.METADATA_NAME: True})
+        
+        return morph_img, metadata
 
 
 class AngleChooseType(Enum):
@@ -56,3 +87,18 @@ class RotateMaskProcessor(IProcessor):
         rotated_img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
         
         return rotated_img
+
+
+class FractalDimensionProcessor(IProcessor):
+    METADATA_NAME = 'fractal_dimension'
+    
+    def _calc_fract_dim(self, bin_img: np.ndarray):
+        sizes, counts = FractalAnalyzer.box_counting(bin_img)
+        return FractalAnalyzer.calculate_fractal_dimension(sizes, counts)
+    
+    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
+        bin_img = ImageProcess.binarize_by_threshold(image)
+        fract_dimension = self._calc_fract_dim(bin_img)
+        metadata.update({self.METADATA_NAME: fract_dimension})
+        
+        return image, metadata

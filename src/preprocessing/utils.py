@@ -47,3 +47,9 @@ class ImageProcess:
             left_crop = diff // 2
             right_crop = diff - left_crop
             return img[:, left_crop:w-right_crop]
+    
+    @staticmethod
+    def img_to_binary_format(img: np.ndarray) -> np.ndarray:
+        threshold_value = 127
+        _, binary_image = cv2.threshold(img, threshold_value, 255, cv2.THRESH_BINARY)
+        return binary_image
