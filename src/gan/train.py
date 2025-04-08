@@ -2,14 +2,14 @@ import os
 from typing import Dict
 import torch
 import matplotlib.pyplot as plt
-from gan.model import GenerativeModel
-from datasets.dataset import DatasetProcessor
 from tqdm import tqdm
-from skimage.metrics import structural_similarity as ssim
+
+from src.gan.model import GenerativeModel
+from src.datasets.dataset import DatasetCreator
 
 
 class GANTrainer:
-    def __init__(self, model: GenerativeModel, dataset_processor: DatasetProcessor, output_path, epochs=10, batch_size=8):
+    def __init__(self, model: GenerativeModel, dataset_processor: DatasetCreator, output_path, epochs=10, batch_size=8):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
         self.dataset_processor = dataset_processor
@@ -25,7 +25,9 @@ class GANTrainer:
         os.makedirs(self.output_path, exist_ok=True)
     
     def train(self):
-        train_loader, val_loader = self.dataset_processor.get_dataloaders()
+        train_loader, val_loader = self.dataset_processor.get_dataloaders(batch_size=self.batch_size, 
+                                                                          shuffle=True, 
+                                                                          workers=4)
         
         # Основной цикл обучения
         for epoch in range(self.epochs):
@@ -46,13 +48,13 @@ class GANTrainer:
                 self._calc_epoch_losses(losses)
                 
                 progress.set_postfix({
-                    "G_loss": losses.get['g_losses']["total_loss"], 
-                    "D_loss": losses.get('d_losses')["total_loss"]
+                    "G_loss": losses.get('g_losses').get('total_loss'), 
+                    "D_loss": losses.get('d_losses').get('total_loss')
                 })
             
             self._calc_avg_losses(batch_size=len(train_loader))
             
-            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses['total_loss']:.4f}, D_loss: {self.epoch_d_losses['total_loss']:.4f}")
+            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses.get('total_loss'):.4f}, D_loss: {self.epoch_d_losses.get('total_loss'):.4f}")
             
             # Валидация и визуализация результатов
             with torch.no_grad():

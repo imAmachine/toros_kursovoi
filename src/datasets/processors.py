@@ -4,6 +4,9 @@ import numpy as np
 class ShiftProcessor:
     DIRECTIONS = ['top', 'bottom', 'left', 'right']
     
+    def __init__(self, shift_percent=0.15):
+        self.shift_percent = shift_percent
+    
     def create_noise_mask(self, damage_mask, noise_level=0.1, inversed=False):
         noise = np.random.uniform(0, noise_level, size=damage_mask.shape).astype(np.float32)
         m = damage_mask
@@ -25,9 +28,9 @@ class ShiftProcessor:
         
         return damage_mask
     
-    def process(self, image: np.ndarray, dmg_size=0.05, masked=False, noised=False) -> tuple:
+    def process(self, image: np.ndarray, masked=False, noised=False) -> tuple:
         img_size = image.shape
-        damage_size = int(max(img_size[0], img_size[1]) * dmg_size)
+        damage_size = int(max(img_size[0], img_size[1]) * self.shift_percent)
         
         damaged = (image.astype(np.float32) / 255.0)
         damage_direction = np.random.choice(self.DIRECTIONS)

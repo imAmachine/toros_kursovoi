@@ -6,7 +6,7 @@ import numpy as np
 from .interfaces import IProcessor
 
 
-class MasksPreprocessor:
+class IceRidgeDatasetPreprocessor:
     """Основной класс для препроцессинга масок"""
     
     def __init__(self):

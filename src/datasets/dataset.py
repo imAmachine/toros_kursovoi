@@ -1,22 +1,21 @@
 import os
 import albumentations as A
 import torch
+from torch.utils.data import DataLoader
+import cv2
+import json
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
 import random
 
-from datasets.processors import ShiftProcessor
-from preprocessing.utils import ImageProcess
+from src.datasets.processors import ShiftProcessor
+from src.preprocessing.utils import ImageProcess
 
-from preprocessing.preprocessor import MasksPreprocessor
-from preprocessing.processors import AngleChooseType, CropProcessor, EnchanceProcessor, RotateMaskProcessor
-from datasets.dataset import IceRidgeDataset, IceRidgeDatasetGenerator
-from datasets.processors import ShiftProcessor
-from torch.utils.data import DataLoader
-import cv2
-import json
+from src.preprocessing.preprocessor import IceRidgeDatasetPreprocessor
+from src.preprocessing.processors import AngleChooseType, CropProcessor, EnchanceProcessor, RotateMaskProcessor
+from src.datasets.processors import ShiftProcessor
 
 class IceRidgeDataset(Dataset):
     def __init__(self, metadata: Dict, dataset_processor: ShiftProcessor = None, with_target=False, transforms=None):
@@ -34,7 +33,7 @@ class IceRidgeDataset(Dataset):
         
         image = self._read_image(self.image_keys[idx]) # чтение итерируемой картинки
         binary_image = ImageProcess.img_to_binary_format(image) # приведение в бинарный формат
-        damaged, mask = self._get_processed_pair(binary_image) # обработка с помощью процессора
+        damaged, mask = self._get_processed_pair(input_img=binary_image, masked=False, noised=False) # обработка с помощью процессора
         transformed_tensors = self.apply_transforms((damaged, binary_image, mask)) # применение конечных трансформаций
         
         return transformed_tensors
@@ -44,13 +43,12 @@ class IceRidgeDataset(Dataset):
         orig_path = orig_meta.get('output_path')
         return cv2.imread(orig_path, cv2.IMREAD_GRAYSCALE)
     
-    def _get_processed_pair(self, input_img):
-        return self.processor.process(input_img)
+    def _get_processed_pair(self, input_img, masked, noised):
+        return self.processor.process(input_img, masked, noised)
     
     def apply_transforms(self, objects: List):
         return [self.transforms(obj) for obj in objects]
         
-    
     @staticmethod
     def split_dataset(metadata: Dict, val_ratio=0.2, seed=42) -> Tuple[Dict, Dict]:
         """Разделяет метаданные на обучающую и валидационную выборки"""
@@ -72,7 +70,7 @@ class IceRidgeDataset(Dataset):
 
 class IceRidgeDatasetGenerator:
    def __init__(self, 
-                albumentations_pipeline,
+                albumentations_pipeline=None,
                 augmentations_per_image=10):
        self.augmentation_pipeline = albumentations_pipeline
        self.augmentations_per_image = augmentations_per_image
@@ -122,12 +120,13 @@ class IceRidgeDatasetGenerator:
        return results_metadata
 
 
-class DatasetProcessor:
-    def __init__(self, generated_path, original_data_path, preprocessed_data_path, images_extentions, model_transforms, preprocess=True, generate_new=True):
-        self.preprocessor = MasksPreprocessor()
+class DatasetCreator:
+    def __init__(self, generated_path, original_data_path, preprocessed_data_path, images_extentions, model_transforms, dataset_processor, preprocess=True, generate_new=True):
+        self.preprocessor = IceRidgeDatasetPreprocessor()
         self.dataset_generator = IceRidgeDatasetGenerator()
+        self.dataset_processor = dataset_processor
         
-        self.generated_metadata_path = generated_path
+        self.generated_path = generated_path
         self.input_data_path = original_data_path
         self.preprocessed_data_path = preprocessed_data_path
         self.images_extentions = images_extentions
@@ -136,8 +135,8 @@ class DatasetProcessor:
         self.preprocess = preprocess
         self.model_transforms = model_transforms
         
-        self.preprocessed_metadata_json_path = os.path.join(self.generated_metadata_path, 'metadata.json')
-        self.generated_metadata_json_path = os.path.join(self.generated_metadata_path, 'metadata_generated.json')
+        self.preprocessed_metadata_json_path = os.path.join(self.preprocessed_data_path, 'metadata.json')
+        self.generated_metadata_json_path = os.path.join(self.generated_path, 'metadata_generated.json')
     
     def _init_preprocessor(self):
         self.preprocessor.add_processors(processors=[
@@ -166,61 +165,59 @@ class DatasetProcessor:
     def _generation_pipeline(self):
         self._init_generator()
         preprocessed_metadata = self.from_json(self.preprocessed_metadata_json_path)
-        generated_metadata = self.dataset_generator.generate(self.generated_metadata_path, preprocessed_metadata)
+        generated_metadata = self.dataset_generator.generate(self.generated_path, preprocessed_metadata)
         self.to_json(generated_metadata, self.generated_metadata_json_path)
     
-    def _create_dataset(self, dataset_processor):
+    def _create_dataloaders(self, batch_size, shuffle, workers):
         dataset_metadata = self.from_json(self.generated_metadata_json_path)
         
-        dataset = IceRidgeDataset(metadata=dataset_metadata, 
-                                  dataset_processor=dataset_processor, 
-                                  transforms=self.model_transforms)
-        
-        return dataset
-    
-    def _create_dataloaders(self, dataset_metadata):
-        train_metadata, val_metadata = dataset_metadata.split_dataset(self.dataset.metadata, val_ratio=0.2)
+        train_metadata, val_metadata = IceRidgeDataset.split_dataset(dataset_metadata, val_ratio=0.2)
         
         train_dataset = IceRidgeDataset(train_metadata, 
-                                        dataset_processor=self.dataset.processor, 
+                                        dataset_processor=self.dataset_processor, 
                                         with_target=False,
                                         transforms=self.model_transforms)
         val_dataset = IceRidgeDataset(val_metadata, 
-                                      dataset_processor=self.dataset.processor, 
+                                      dataset_processor=self.dataset_processor, 
                                       with_target=False,
                                       transforms=self.model_transforms)
         
         train_loader = DataLoader(
             train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=4
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=workers
         )
         
         val_loader = DataLoader(
             val_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=4
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=workers
         )
         
         return train_loader, val_loader
     
-    def get_dataloaders(self):
-        if self.preprocess:
+    def _check_files(self, dirs_paths: List):
+        for path in dirs_paths:
+            if not os.path.exists(path):
+                os.mkdir(path)
+    
+    def get_dataloaders(self, batch_size, shuffle, workers):
+        self._check_files(dirs_paths=[self.generated_path, self.preprocessed_data_path])
+        
+        if self.preprocess or not os.path.exists(self.preprocessed_metadata_json_path):
             self._preprocess_pipeline()
         
-        if self.generate_new:
+        if self.generate_new or not os.path.exists(self.generated_metadata_json_path):
             self._generation_pipeline()
-            
-        dataset_metadata = self._create_dataset(ShiftProcessor(shift_percent=0.15))
         
-        return self._create_dataloaders(dataset_metadata)
+        return self._create_dataloaders(batch_size, shuffle, workers)
     
     def to_json(self, metadata, path):
         with open(path, 'w+', encoding='utf8') as f:
             json.dump(metadata, f, indent=4, ensure_ascii=False)
     
     def from_json(self, path):
-        with open(path, 'w+', encoding='utf8') as f:
+        with open(path, 'r', encoding='utf8') as f:
             return json.load(f)

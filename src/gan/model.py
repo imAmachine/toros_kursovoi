@@ -2,10 +2,8 @@ import os
 import torch
 import torch.nn as nn
 from torchvision.transforms import transforms
-import albumentations as A
 
-from gan.gan_arch import GanDiscriminator, GanGenerator
-from gan.train import GANTrainer
+from src.gan.gan_arch import GanDiscriminator, GanGenerator
 from .interfaces import IModelTrainer
 
 class GenerativeModel:
@@ -20,6 +18,7 @@ class GenerativeModel:
 
     def get_transforms(self):
         return transforms.Compose([
+            transforms.ToPILImage(),
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor()
         ])
@@ -50,13 +49,6 @@ class GeneratorModelTrainer(IModelTrainer):
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "generator.pt"))
     
-    def _gram_matrix(self, features):
-        batch_size, channels, height, width = features.size()
-        features_flat = features.view(batch_size, channels, height * width)
-        features_t = features_flat.transpose(1, 2)
-        gram = features_flat.bmm(features_t) / (channels * height * width)
-        return gram
-    
     def train_pipeline_step(self, inputs, masks, targets, fd=None):        
         # Обнуляем градиенты
         self.optimizer.zero_grad()
@@ -81,7 +73,8 @@ class GeneratorModelTrainer(IModelTrainer):
         
         # Сохраняем историю потерь
         loss_dict = {
-            'adv_loss': gen_adv_loss.item()
+            'adv_loss': gen_adv_loss.item(),
+            'total_loss': gen_total_loss.item()
         }
         self.loss_history.append(loss_dict)
         

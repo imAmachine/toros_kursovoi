@@ -3,8 +3,8 @@ from typing import Any, Dict
 import cv2
 import numpy as np
 
-from analyzer.fractal_funcs import FractalAnalyzer
-from analyzer.rotation_analyze import RotationAnalyze
+from src.analyzer.fractal_funcs import FractalAnalyzer
+from src.analyzer.rotation_analyze import RotationAnalyze
 from .interfaces import IProcessor
 from .utils import ImageProcess
 
@@ -75,7 +75,6 @@ class RotateMaskProcessor(IProcessor):
             'hough': RotationAnalyze.get_hough_rotation_angle(image)
         }
     
-        # Get and execute angle calculation strategy
         result_angle = self.angle_choose_type(angles)
         
         return result_angle
