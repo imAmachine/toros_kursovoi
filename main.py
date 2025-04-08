@@ -6,8 +6,8 @@ from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER
 
 
 def main():
-    gan = GenerativeModel(target_image_size=224, 
-                          g_feature_maps=128, 
+    gan = GenerativeModel(target_image_size=448, 
+                          g_feature_maps=256, 
                           d_feature_maps=32)
     ds = DatasetCreator(generated_path=AUGMENTED_DATASET_FOLDER_PATH,
                         original_data_path=MASKS_FOLDER_PATH,

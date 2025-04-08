@@ -19,9 +19,10 @@ class GenerativeModel:
     def get_transforms(self):
         return transforms.Compose([
             transforms.ToPILImage(),
-            transforms.GaussianBlur(1),
+            # transforms.GaussianBlur(1),
             transforms.Resize((self.target_image_size, self.target_image_size)),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
         ])
 
     def _init_trainers(self):
@@ -43,7 +44,7 @@ class GeneratorModelTrainer(IModelTrainer):
         self.discriminator = discriminator
         self.optimizer = torch.optim.Adam(model.parameters(), lr=0.005, betas=(0.5, 0.999))
         
-        self.adv_criterion = nn.BCEWithLogitsLoss()
+        self.adv_criterion = nn.BCELoss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):
@@ -66,7 +67,7 @@ class GeneratorModelTrainer(IModelTrainer):
         gen_adv_loss = self._calc_adv_loss(generated, masks)
         gen_adv_loss_masked = self._calc_adv_masked_region_loss(generated, masks)
         
-        gen_total_loss = gen_adv_loss + gen_adv_loss_masked
+        gen_total_loss = gen_adv_loss + gen_adv_loss_masked * 1.1
         
         gen_total_loss.backward()
         self.optimizer.step()
@@ -85,7 +86,7 @@ class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
         self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0005, betas=(0.5, 0.999))
-        self.criterion = nn.L1Loss()
+        self.criterion = nn.BCELoss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):

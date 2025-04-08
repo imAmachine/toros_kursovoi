@@ -100,31 +100,28 @@ class GanGenerator(nn.Module):
 
 class GanDiscriminator(nn.Module):
     def __init__(self, input_channels=1, feature_maps=64):
-        super(GanDiscriminator, self).__init__()
+        super().__init__()
         
-        self.layer1 = ConvBlock(input_channels, feature_maps, 
-                               kernel_size=4, stride=2, padding=1, 
-                               use_bn=False, activation=nn.LeakyReLU(0.2))
-        
-        self.layer2 = ConvBlock(feature_maps, feature_maps*2, 
-                               kernel_size=4, stride=2, padding=1, 
-                               use_bn=True, activation=nn.LeakyReLU(0.2))
-        
-        self.layer3 = ConvBlock(feature_maps*2, feature_maps*4, 
-                               kernel_size=4, stride=2, padding=1, 
-                               use_bn=True, activation=nn.LeakyReLU(0.2))
-        
-        self.layer4 = ConvBlock(feature_maps*4, feature_maps*8, 
-                               kernel_size=3, stride=1, padding=1, 
-                               use_bn=True, activation=nn.LeakyReLU(0.2))
-        
-        # Финальный слой для классификации патчей
-        self.final = nn.Conv2d(feature_maps*8, 1, kernel_size=3, stride=1, padding=1)
+        self.layers = nn.Sequential(
+            nn.Conv2d(input_channels, feature_maps, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(feature_maps, feature_maps*2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(feature_maps*2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(feature_maps*2, feature_maps*4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(feature_maps*4),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(feature_maps*4, feature_maps*8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(feature_maps*8),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(feature_maps*8, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
     
     def forward(self, x):
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.final(x)
-        return x
+        x = torch.clamp(x, 0, 1)
+        return self.layers(x)

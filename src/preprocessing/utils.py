@@ -50,6 +50,7 @@ class ImageProcess:
     
     @staticmethod
     def img_to_binary_format(img: np.ndarray) -> np.ndarray:
-        threshold_value = 128
-        _, binary_image = cv2.threshold(img, threshold_value, 1, cv2.THRESH_BINARY)
-        return (binary_image > 0.5).astype(np.float32)
+        if np.isin(img, [0, 1]).all():
+            return img.astype(np.float32)
+        _, binary = cv2.threshold(img, 128, 1, cv2.THRESH_BINARY)
+        return binary.astype(np.float32)
