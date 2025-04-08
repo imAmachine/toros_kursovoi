@@ -1,123 +1,117 @@
 import torch
-import torch.nn.functional as F
-from torch.nn.utils import spectral_norm
+import torch.nn as nn
 
-class GatedConv(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
-        super().__init__()
-        self.conv = torch.nn.Conv2d(in_channels, out_channels*2, kernel_size, stride, padding)
-        self.sigmoid = torch.nn.Sigmoid()
 
-    def forward(self, x, mask):
-        out = self.conv(x)
-        features, gate = torch.split(out, out.shape[1]//2, dim=1)
-        if mask.shape[2:] != gate.shape[2:]:
-            mask = F.interpolate(mask, size=gate.shape[2:], mode='bilinear', align_corners=False)
-        gate = self.sigmoid(gate + mask)
-        return features * gate
-    
-class AOTBlock(torch.nn.Module):
-    def __init__(self, dim, rates=(1, 2, 4, 8)):
-        super(AOTBlock, self).__init__()
-        self.rates = rates
-        self.blocks = torch.nn.ModuleList([
-            torch.nn.Sequential(
-                torch.nn.ReflectionPad2d(rate),
-                torch.nn.Conv2d(dim, dim // 4, kernel_size=3, padding=0, dilation=rate),
-                torch.nn.ReLU(True),
-            )
-            for rate in rates
-        ])
-        self.fuse = torch.nn.Sequential(
-            torch.nn.ReflectionPad2d(1),
-            torch.nn.Conv2d(dim, dim, kernel_size=3, padding=0),
-        )
-        self.gate = torch.nn.Sequential(
-            torch.nn.ReflectionPad2d(1),
-            torch.nn.Conv2d(dim, dim, kernel_size=3, padding=0),
-        )
-
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=4, stride=2, padding=1, use_bn=True, activation=None):
+        super(ConvBlock, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=not use_bn)
+        self.bn = nn.BatchNorm2d(out_channels) if use_bn else None
+        self.activation = activation
+        
     def forward(self, x):
-        out = torch.cat([blk(x) for blk in self.blocks], dim=1)
-        out = self.fuse(out)
-        gate = torch.sigmoid(self._layer_norm(self.gate(x)))
-        return x * (1 - gate) + out * gate
+        x = self.conv(x)
+        if self.bn:
+            x = self.bn(x)
+        if self.activation:
+            x = self.activation(x)
+        return x
 
-    def _layer_norm(self, feat):
-        mean = feat.mean((2, 3), keepdim=True)
-        std = feat.std((2, 3), keepdim=True) + 1e-9
-        return 5 * (2 * (feat - mean) / std - 1)
-    
-class AOTGenerator(torch.nn.Module):
-    def __init__(self, input_channels=2, feature_maps=64, aot_blocks=2):
-        super().__init__()
-        # Encoder
-        self.enc1 = GatedConv(input_channels, feature_maps, kernel_size=7, padding=3)
-        self.enc2 = GatedConv(feature_maps, feature_maps*2, kernel_size=4, stride=2, padding=1)
-        self.enc3 = GatedConv(feature_maps*2, feature_maps*4, kernel_size=4, stride=2, padding=1)
+
+class Generator(nn.Module):
+    def __init__(self, input_channels=2, feature_maps=64):
+        super(Generator, self).__init__()
         
-        # AOT Blocks - несколько блоков вместо одного для лучшего улавливания паттернов
-        self.aot_blocks = torch.nn.ModuleList([AOTBlock(dim=feature_maps*4) for _ in range(aot_blocks)])
+        # Энкодер
+        self.enc1 = ConvBlock(input_channels, feature_maps, use_bn=False, activation=nn.LeakyReLU(0.2))
+        self.enc2 = ConvBlock(feature_maps, feature_maps*2, activation=nn.LeakyReLU(0.2))
+        self.enc3 = ConvBlock(feature_maps*2, feature_maps*4, activation=nn.LeakyReLU(0.2))
+        self.enc4 = ConvBlock(feature_maps*4, feature_maps*8, activation=nn.LeakyReLU(0.2))
         
-        # Attention module - для лучшего восстановления структурных деталей
-        self.attention = torch.nn.Sequential(
-            torch.nn.Conv2d(feature_maps*4, feature_maps, kernel_size=1),
-            torch.nn.BatchNorm2d(feature_maps),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(feature_maps, feature_maps*4, kernel_size=1),
-            torch.nn.BatchNorm2d(feature_maps*4),
-            torch.nn.Sigmoid()
+        # Декодер с пропускными соединениями
+        self.dec1 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*8, feature_maps*4, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps*4),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5)
         )
         
-        # Decoder
-        self.dec1 = torch.nn.ConvTranspose2d(feature_maps*4, feature_maps*2, kernel_size=4, stride=2, padding=1)
-        self.dec2 = torch.nn.ConvTranspose2d(feature_maps*2, feature_maps, kernel_size=4, stride=2, padding=1)
-        self.dec3 = GatedConv(feature_maps, 1, kernel_size=7, padding=3)
-        self.sigmoid = torch.nn.Sigmoid()
-
+        self.dec2 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*8, feature_maps*2, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps*2),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5)
+        )
+        
+        self.dec3 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*4, feature_maps, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps),
+            nn.ReLU(inplace=True)
+        )
+        
+        # Выходной слой
+        self.final = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps*2, 1, kernel_size=4, stride=2, padding=1),
+            nn.Sigmoid()
+        )
+        
     def forward(self, x, mask):
         # Объединяем входное изображение и маску
-        x_input = x
-        x = torch.cat([x, mask], dim=1)
+        x_combined = torch.cat([x, mask], dim=1)
         
-        # Encode
-        e1 = self.enc1(x, mask)
-        e2 = self.enc2(e1, mask)
-        e3 = self.enc3(e2, mask)
+        # Кодирование
+        e1 = self.enc1(x_combined)  # [batch, feature_maps, H/2, W/2]
+        e2 = self.enc2(e1)          # [batch, feature_maps*2, H/4, W/4]
+        e3 = self.enc3(e2)          # [batch, feature_maps*4, H/8, W/8]
+        e4 = self.enc4(e3)          # [batch, feature_maps*8, H/16, W/16]
         
-        # AOT Blocks с остаточными соединениями
-        x = e3
-        for aot_block in self.aot_blocks:
-            x = x + aot_block(x)
+        # Декодирование с пропускными соединениями
+        d1 = self.dec1(e4)          # [batch, feature_maps*4, H/8, W/8]
+        d1 = torch.cat([d1, e3], dim=1)  # [batch, feature_maps*8, H/8, W/8]
         
-        # Decode с skip-соединениями для сохранения деталей
-        x = self.dec1(x)
-        x = x + e2  # Skip connection
-        x = self.dec2(x)
-        x = x + e1  # Skip connection
-        x = self.dec3(x, mask)
+        d2 = self.dec2(d1)          # [batch, feature_maps*2, H/4, W/4]
+        d2 = torch.cat([d2, e2], dim=1)  # [batch, feature_maps*4, H/4, W/4]
         
-        return self.sigmoid(x)
+        d3 = self.dec3(d2)          # [batch, feature_maps, H/2, W/2]
+        d3 = torch.cat([d3, e1], dim=1)  # [batch, feature_maps*2, H/2, W/2]
+        
+        # Финальный выход
+        output = self.final(d3)    # [batch, 1, H, W]
+        
+        # Комбинируем оригинальное изображение и сгенерированную часть
+        composite = x *  mask + output * mask
+        
+        return composite, output
 
 
-class AOTDiscriminator(torch.nn.Module):
+class Discriminator(nn.Module):
     def __init__(self, input_channels=1, feature_maps=64):
-        super(AOTDiscriminator, self).__init__()
-        self.model = torch.nn.Sequential(
-            torch.nn.Conv2d(input_channels, feature_maps, kernel_size=4, stride=2, padding=1),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            
-            spectral_norm(torch.nn.Conv2d(feature_maps, feature_maps * 2, kernel_size=4, stride=2, padding=1)),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-
-            spectral_norm(torch.nn.Conv2d(feature_maps * 2, feature_maps * 4, kernel_size=4, stride=2, padding=1)),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-
-            spectral_norm(torch.nn.Conv2d(feature_maps * 4, feature_maps * 8, kernel_size=4, stride=2, padding=1)),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-
-            torch.nn.Conv2d(feature_maps * 8, 1, kernel_size=4, stride=1, padding=0)
-        )
+        super(Discriminator, self).__init__()
+        
+        # PatchGAN дискриминатор
+        self.layer1 = ConvBlock(input_channels, feature_maps, 
+                               kernel_size=4, stride=2, padding=1, 
+                               use_bn=False, activation=nn.LeakyReLU(0.2))
+        
+        self.layer2 = ConvBlock(feature_maps, feature_maps*2, 
+                               kernel_size=4, stride=2, padding=1, 
+                               use_bn=True, activation=nn.LeakyReLU(0.2))
+        
+        self.layer3 = ConvBlock(feature_maps*2, feature_maps*4, 
+                               kernel_size=4, stride=2, padding=1, 
+                               use_bn=True, activation=nn.LeakyReLU(0.2))
+        
+        self.layer4 = ConvBlock(feature_maps*4, feature_maps*8, 
+                               kernel_size=4, stride=1, padding=1, 
+                               use_bn=True, activation=nn.LeakyReLU(0.2))
+        
+        # Финальный слой для классификации патчей
+        self.final = nn.Conv2d(feature_maps*8, 1, kernel_size=4, stride=1, padding=1)
     
     def forward(self, x):
-        return self.model(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.final(x)
+        return x
