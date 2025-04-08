@@ -44,7 +44,7 @@ class ShiftProcessor:
             damaged *= (1 - damage_mask)
             
         if noised:
-            damaged += self.create_noise_mask(damage_mask, noise_level=0.5)
+            damaged += self.create_noise_mask(damage_mask, noise_level=1)
             
         return damaged, damage_mask
     

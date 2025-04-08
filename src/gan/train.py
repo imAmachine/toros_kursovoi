@@ -88,7 +88,7 @@ class GANTrainer:
                         
                         # Сгенерированное изображение
                         plt.subplot(4, 5, i + 11)
-                        plt.imshow(composite[i].cpu().squeeze().numpy(), cmap='gray')
+                        plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
                         plt.title(f'Generated [Batch {batch_idx}]')
                         plt.axis('off')
                         
