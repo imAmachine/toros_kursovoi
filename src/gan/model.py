@@ -50,7 +50,12 @@ class GeneratorModelTrainer(IModelTrainer):
     
     def _calc_adv_loss(self, generated_image):
         fake_pred = self.discriminator(generated_image)
-        real_label = torch.ones_like(fake_pred, device=fake_pred.device)
+        real_label = torch.ones_like(fake_pred)
+        return self.adv_criterion(fake_pred, real_label)
+    
+    def _calc_adv_masked_region_loss(self, generated_image, mask):
+        fake_pred = self.discriminator(generated_image * mask)
+        real_label = torch.ones_like(fake_pred)
         return self.adv_criterion(fake_pred, real_label)
     
     def train_pipeline_step(self, inputs, masks, targets, fd=None):        
@@ -60,10 +65,11 @@ class GeneratorModelTrainer(IModelTrainer):
         # Генерируем изображение
         composite, generated = self.model(inputs, masks)
         
-        gen_adv_loss = self._calc_adv_loss(composite)
+        gen_adv_loss = self._calc_adv_loss(generated)
+        gen_adv_loss_masked = self._calc_adv_masked_region_loss(generated, masks)
         
         # Общая потеря
-        gen_total_loss = gen_adv_loss
+        gen_total_loss = gen_adv_loss + gen_adv_loss_masked
         
         # Обратное распространение
         gen_total_loss.backward()
@@ -72,6 +78,7 @@ class GeneratorModelTrainer(IModelTrainer):
         # Сохраняем историю потерь
         loss_dict = {
             'adv_loss': gen_adv_loss.item(),
+            'adv_masked_loss': gen_adv_loss_masked.item(),
             'total_loss': gen_total_loss.item()
         }
         self.loss_history.append(loss_dict)
@@ -90,16 +97,13 @@ class DiscriminatorModelTrainer(IModelTrainer):
         torch.save(self.model.state_dict(), os.path.join(output_path, "discriminator.pt"))
     
     def _calc_adv_loss(self, fake_images, real_images):
-        device = torch.device('cuda:0')
-        # тестирование дескриминатора на реальных изображениях
         real_pred = self.model(real_images)
-        real_label = torch.ones(real_images.shape[0], 1, 28, 28, device=device)
+        fake_pred = self.model(fake_images.detach())
+        
+        real_label = torch.ones_like(real_pred)
+        fake_label = torch.zeros_like(fake_pred)
         
         real_loss = self.criterion(real_pred, real_label)
-        
-        # тестирование дескриминатора на сгенерированных генератором изображениях
-        fake_pred = self.model(fake_images.detach())
-        fake_label = torch.zeros(real_images.shape[0], 1, 28, 28, device=device)
         fake_loss = self.criterion(fake_pred, fake_label)
         
         return {'real_loss': real_loss, 'fake_loss': fake_loss}

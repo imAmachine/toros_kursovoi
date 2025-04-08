@@ -20,8 +20,8 @@ def main():
     trainer = GANTrainer(model=gan, 
                          dataset_processor=ds,
                          output_path=GENERATED_GAN_PATH,
-                         epochs=50,
-                         batch_size=5)
+                         epochs=200,
+                         batch_size=8)
 
     trainer.train()
 
