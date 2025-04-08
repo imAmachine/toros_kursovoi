@@ -15,7 +15,7 @@ class ShiftProcessor:
         return m * noise
     
     def create_damage_mask(self, damage_mask_shape, dmg_size, direction, dmg_val=1.0):
-        damage_mask = np.ones(damage_mask_shape, dtype=np.float32)
+        damage_mask = np.zeros(damage_mask_shape, dtype=np.float32)
         
         if direction == 'top':
             damage_mask[:dmg_size, :] = dmg_val
@@ -32,16 +32,19 @@ class ShiftProcessor:
         img_size = image.shape
         damage_size = int(max(img_size[0], img_size[1]) * self.shift_percent)
         
-        damaged = (image.astype(np.float32) / 255.0)
+        damaged = image.copy()
         damage_direction = np.random.choice(self.DIRECTIONS)
         
-        damage_mask = self.create_damage_mask(img_size, damage_size, damage_direction, 1.0)
+        damage_mask = self.create_damage_mask(damage_mask_shape=img_size, 
+                                              dmg_size=damage_size, 
+                                              direction=damage_direction, 
+                                              dmg_val=1.0)
         
         if masked:
-            damaged *= damage_mask
+            damaged *= (1 - damage_mask)
             
         if noised:
-            damaged += self.create_noise_mask(damage_mask)
+            damaged += self.create_noise_mask(damage_mask, noise_level=0.5)
             
         return damaged, damage_mask
     

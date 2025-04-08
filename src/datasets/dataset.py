@@ -33,7 +33,7 @@ class IceRidgeDataset(Dataset):
         
         image = self._read_image(self.image_keys[idx]) # чтение итерируемой картинки
         binary_image = ImageProcess.img_to_binary_format(image) # приведение в бинарный формат
-        damaged, mask = self._get_processed_pair(input_img=binary_image, masked=False, noised=False) # обработка с помощью процессора
+        damaged, mask = self._get_processed_pair(input_img=binary_image, masked=True, noised=True) # обработка с помощью процессора
         transformed_tensors = self.apply_transforms((damaged, binary_image, mask)) # применение конечных трансформаций
         
         return transformed_tensors

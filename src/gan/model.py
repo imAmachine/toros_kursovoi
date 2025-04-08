@@ -82,7 +82,7 @@ class GeneratorModelTrainer(IModelTrainer):
 class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
-        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0002, betas=(0.5, 0.999))
+        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0004, betas=(0.5, 0.999))
         self.criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
 

@@ -13,7 +13,7 @@ class GANTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
         self.dataset_processor = dataset_processor
-        # Параметры
+
         self.output_path = output_path
         self.epochs = epochs
         self.batch_size = batch_size
@@ -21,7 +21,6 @@ class GANTrainer:
         self.epoch_g_losses = {"total_loss": 0.0}
         self.epoch_d_losses = {"total_loss": 0.0}
         
-        # Создаем директорию
         os.makedirs(self.output_path, exist_ok=True)
     
     def train(self):
@@ -89,7 +88,7 @@ class GANTrainer:
                         
                         # Сгенерированное изображение
                         plt.subplot(4, 5, i + 11)
-                        plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
+                        plt.imshow(composite[i].cpu().squeeze().numpy(), cmap='gray')
                         plt.title(f'Generated [Batch {batch_idx}]')
                         plt.axis('off')
                         
