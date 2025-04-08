@@ -31,7 +31,7 @@ class GenerativeModel:
     
     def train_step(self, inputs, targets, masks):
         g_loss_dict, fake_images = self.g_trainer.train_pipeline_step(inputs, masks, targets)
-        d_loss_dict = self.d_trainer.train_pipeline_step(targets, fake_images, masks)
+        d_loss_dict = self.d_trainer.train_pipeline_step(targets, fake_images)
         
         return {'g_losses': g_loss_dict, 'd_losses': d_loss_dict}
 
@@ -43,11 +43,15 @@ class GeneratorModelTrainer(IModelTrainer):
         self.optimizer = torch.optim.Adam(model.parameters(), lr=0.002, betas=(0.5, 0.999))
         
         self.adv_criterion = nn.BCEWithLogitsLoss()
-        self.l1_criterion = nn.L1Loss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "generator.pt"))
+    
+    def _calc_adv_loss(self, generated_image):
+        fake_pred = self.discriminator(generated_image)
+        real_label = torch.ones_like(fake_pred, device=fake_pred.device)
+        return self.adv_criterion(fake_pred, real_label)
     
     def train_pipeline_step(self, inputs, masks, targets, fd=None):        
         # Обнуляем градиенты
@@ -56,13 +60,7 @@ class GeneratorModelTrainer(IModelTrainer):
         # Генерируем изображение
         composite, generated = self.model(inputs, masks)
         
-        masked_targets = targets * masks
-        masked_generated = generated * masks
-        
-        # Adversarial loss
-        fake_pred = self.discriminator(masked_generated)
-        real_label = torch.ones_like(fake_pred, device=fake_pred.device)
-        gen_adv_loss = self.adv_criterion(fake_pred, real_label)
+        gen_adv_loss = self._calc_adv_loss(composite)
         
         # Общая потеря
         gen_total_loss = gen_adv_loss
@@ -91,35 +89,32 @@ class DiscriminatorModelTrainer(IModelTrainer):
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "discriminator.pt"))
     
-    def train_pipeline_step(self, targets, fake_images, masks):
+    def _calc_adv_loss(self, fake_images, real_images):
+        # тестирование дескриминатора на реальных изображениях
+        real_pred = self.model(real_images)
+        real_label = torch.ones_like(real_pred, device=real_pred.device)
+        real_loss = self.criterion(real_pred, real_label)
+        
+        # тестирование дескриминатора на сгенерированных генератором изображениях
+        fake_pred = self.model(fake_images.detach())
+        fake_label = torch.zeros_like(fake_pred, device=fake_pred.device)
+        fake_loss = self.criterion(fake_pred, fake_label)
+        
+        return {'real_loss': real_loss, 'fake_loss': fake_loss}
+    
+    def train_pipeline_step(self, targets, fake_images):
         # Перемещаем данные на устройство
         targets = targets.to(next(self.model.parameters()).device)
         fake_images = fake_images.to(next(self.model.parameters()).device)
         
-        # Обнуляем градиенты
         self.optimizer.zero_grad()
+        adv_losses = self._calc_adv_loss(fake_images, targets)
+        disc_loss = (adv_losses.get('real_loss') + adv_losses.get('fake_loss')) * 0.5
         
-        # Реальное изображение
-        real_pred = self.model(targets)
-        real_label = torch.zeros_like(real_pred, device=real_pred.device)
-        real_loss = self.criterion(real_pred, real_label)
-        
-        # Поддельное изображение
-        fake_pred = self.model(fake_images.detach())
-        fake_label = torch.ones_like(fake_pred, device=fake_pred.device)
-        fake_loss = self.criterion(fake_pred, fake_label)
-        
-        # Общая потеря
-        disc_loss = (real_loss + fake_loss) * 0.5
-        
-        # Обратное распространение
         disc_loss.backward()
         self.optimizer.step()
         
-        # Сохраняем историю потерь
         loss_dict = {
-            'real_loss': real_loss.item(),
-            'fake_loss': fake_loss.item(),
             'total_loss': disc_loss.item()
         }
         self.loss_history.append(loss_dict)

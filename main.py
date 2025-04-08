@@ -15,17 +15,13 @@ def main():
                         images_extentions=['.png'],
                         model_transforms=gan.get_transforms(),
                         dataset_processor=ShiftProcessor(shift_percent=0.15),
-                        preprocess=True,
-                        generate_new=True)
+                        preprocess=False,
+                        generate_new=False)
     trainer = GANTrainer(model=gan, 
                          dataset_processor=ds,
                          output_path=GENERATED_GAN_PATH,
                          epochs=10,
                          batch_size=2)
-    
-    
-    
-    
 
     trainer.train()
 

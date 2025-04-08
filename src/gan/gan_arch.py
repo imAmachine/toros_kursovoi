@@ -51,8 +51,7 @@ class GanGenerator(nn.Module):
         
         # Выходной слой
         self.final = nn.Sequential(
-            nn.ConvTranspose2d(feature_maps*2, 1, kernel_size=4, stride=2, padding=1),
-            nn.Sigmoid()
+            nn.ConvTranspose2d(feature_maps*2, 1, kernel_size=4, stride=2, padding=1)
         )
         
     def forward(self, x, mask):
