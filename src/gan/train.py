@@ -64,9 +64,9 @@ class GANTrainer:
                     if batch_idx == 1:
                         break
                     
-                    val_inputs = val_inputs.to(self.device)
-                    val_targets = val_targets.to(self.device)
-                    val_masks = val_masks.to(self.device)
+                    val_inputs = val_inputs.to(self.device).detach()
+                    val_targets = val_targets.to(self.device).detach()
+                    val_masks = val_masks.to(self.device).detach()
                     
                     # Генерация изображений
                     composite, generated_val = self.model.generator(val_inputs, val_masks)
