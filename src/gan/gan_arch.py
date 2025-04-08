@@ -78,7 +78,7 @@ class GanGenerator(nn.Module):
         output = self.final(d3)    # [batch, 1, H, W]
         
         # Комбинируем оригинальное изображение и сгенерированную часть
-        composite = x *  mask + output * mask
+        composite = x * (1- mask) + output * mask
         
         return composite, output
 
@@ -101,11 +101,11 @@ class GanDiscriminator(nn.Module):
                                use_bn=True, activation=nn.LeakyReLU(0.2))
         
         self.layer4 = ConvBlock(feature_maps*4, feature_maps*8, 
-                               kernel_size=4, stride=1, padding=1, 
+                               kernel_size=3, stride=1, padding=1, 
                                use_bn=True, activation=nn.LeakyReLU(0.2))
         
         # Финальный слой для классификации патчей
-        self.final = nn.Conv2d(feature_maps*8, 1, kernel_size=4, stride=1, padding=1)
+        self.final = nn.Conv2d(feature_maps*8, 1, kernel_size=3, stride=1, padding=1)
     
     def forward(self, x):
         x = self.layer1(x)
