@@ -7,7 +7,7 @@ from src.gan.gan_arch import GanDiscriminator, GanGenerator
 from .interfaces import IModelTrainer
 
 class GenerativeModel:
-    def __init__(self, target_image_size=224, g_feature_maps=32, d_feature_maps=16):
+    def __init__(self, target_image_size=512, g_feature_maps=64, d_feature_maps=16):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.generator = GanGenerator(input_channels=2, feature_maps=g_feature_maps).to(self.device)
         self.discriminator = GanDiscriminator(input_channels=1, feature_maps=d_feature_maps).to(self.device)
@@ -19,6 +19,7 @@ class GenerativeModel:
     def get_transforms(self):
         return transforms.Compose([
             transforms.ToPILImage(),
+            transforms.GaussianBlur(1),
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor()
         ])
@@ -30,7 +31,7 @@ class GenerativeModel:
         return g_trainer, d_trainer
     
     def train_step(self, inputs, targets, masks):
-        g_loss_dict, fake_images = self.g_trainer.train_pipeline_step(inputs, masks, targets)
+        g_loss_dict, fake_images = self.g_trainer.train_pipeline_step(inputs, masks)
         d_loss_dict = self.d_trainer.train_pipeline_step(targets, fake_images)
         
         return {'g_losses': g_loss_dict, 'd_losses': d_loss_dict}
@@ -48,8 +49,8 @@ class GeneratorModelTrainer(IModelTrainer):
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "generator.pt"))
     
-    def _calc_adv_loss(self, generated_image):
-        fake_pred = self.discriminator(generated_image)
+    def _calc_adv_loss(self, generated_image, masks):
+        fake_pred = self.discriminator(generated_image * (1 - masks))
         real_label = torch.ones_like(fake_pred)
         return self.adv_criterion(fake_pred, real_label)
     
@@ -58,25 +59,18 @@ class GeneratorModelTrainer(IModelTrainer):
         real_label = torch.ones_like(fake_pred)
         return self.adv_criterion(fake_pred, real_label)
     
-    def train_pipeline_step(self, inputs, masks, targets, fd=None):        
-        # Обнуляем градиенты
+    def train_pipeline_step(self, inputs, masks):
         self.optimizer.zero_grad()
+        generated = self.model(inputs, masks)
         
-        # Генерируем изображение
-        composite, generated = self.model(inputs, masks)
-        
-        gen_adv_loss = self._calc_adv_loss(generated)
+        gen_adv_loss = self._calc_adv_loss(generated, masks)
         gen_adv_loss_masked = self._calc_adv_masked_region_loss(generated, masks)
         
-        # Общая потеря
-        gen_total_loss = gen_adv_loss * 0.9 + gen_adv_loss_masked * 1.1
+        gen_total_loss = gen_adv_loss + gen_adv_loss_masked
         
-        
-        # Обратное распространение
         gen_total_loss.backward()
         self.optimizer.step()
         
-        # Сохраняем историю потерь
         loss_dict = {
             'adv_loss': gen_adv_loss.item(),
             'adv_masked_loss': gen_adv_loss_masked.item(),
@@ -91,7 +85,7 @@ class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
         self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0005, betas=(0.5, 0.999))
-        self.criterion = nn.BCEWithLogitsLoss()
+        self.criterion = nn.L1Loss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):

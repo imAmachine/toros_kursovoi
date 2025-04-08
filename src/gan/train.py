@@ -69,7 +69,7 @@ class GANTrainer:
                     val_masks = val_masks.to(self.device).detach()
                     
                     # Генерация изображений
-                    composite, generated_val = self.model.generator(val_inputs, val_masks)
+                    generated_val = self.model.generator(val_inputs, val_masks)
                     
                     # Визуализация
                     plt.figure(figsize=(15, 15))

@@ -7,7 +7,7 @@ from settings import GENERATOR_PATH, MASKS_FOLDER_PATH, AUGMENTED_DATASET_FOLDER
 
 def main():
     gan = GenerativeModel(target_image_size=224, 
-                          g_feature_maps=32, 
+                          g_feature_maps=128, 
                           d_feature_maps=32)
     ds = DatasetCreator(generated_path=AUGMENTED_DATASET_FOLDER_PATH,
                         original_data_path=MASKS_FOLDER_PATH,
@@ -21,7 +21,7 @@ def main():
                          dataset_processor=ds,
                          output_path=GENERATED_GAN_PATH,
                          epochs=20000,
-                         batch_size=8)
+                         batch_size=4)
 
     trainer.train()
 

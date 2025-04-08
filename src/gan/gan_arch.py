@@ -22,72 +22,86 @@ class GanGenerator(nn.Module):
     def __init__(self, input_channels=2, feature_maps=64):
         super(GanGenerator, self).__init__()
         
-        # Энкодер
+        # --- Энкодер ---
         self.enc1 = ConvBlock(input_channels, feature_maps, use_bn=False, activation=nn.LeakyReLU(0.2))
-        self.enc2 = ConvBlock(feature_maps, feature_maps*2, activation=nn.LeakyReLU(0.2))
-        self.enc3 = ConvBlock(feature_maps*2, feature_maps*4, activation=nn.LeakyReLU(0.2))
-        self.enc4 = ConvBlock(feature_maps*4, feature_maps*8, activation=nn.LeakyReLU(0.2))
+        self.enc2 = ConvBlock(feature_maps, feature_maps * 2, activation=nn.LeakyReLU(0.2))
+        self.enc3 = ConvBlock(feature_maps * 2, feature_maps * 4, activation=nn.LeakyReLU(0.2))
+        self.enc4 = ConvBlock(feature_maps * 4, feature_maps * 8, activation=nn.LeakyReLU(0.2))
         
-        # Декодер с пропускными соединениями
+        # --- Bottleneck ---
+        self.bottleneck = nn.Sequential(
+            nn.Conv2d(feature_maps * 8, feature_maps * 8, kernel_size=3, padding=1),
+            nn.BatchNorm2d(feature_maps * 8),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(feature_maps * 8, feature_maps * 8, kernel_size=3, padding=1),
+            nn.BatchNorm2d(feature_maps * 8),
+            nn.ReLU(inplace=True),
+        )
+        
+        # --- Декодер с учетом concat ---
         self.dec1 = nn.Sequential(
-            nn.ConvTranspose2d(feature_maps*8, feature_maps*4, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_maps*4),
+            nn.ConvTranspose2d(feature_maps * 8, feature_maps * 4, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps * 4),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5)
         )
         
         self.dec2 = nn.Sequential(
-            nn.ConvTranspose2d(feature_maps*8, feature_maps*2, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_maps*2),
+            nn.ConvTranspose2d(feature_maps * 8, feature_maps * 2, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps * 2),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5)
         )
         
         self.dec3 = nn.Sequential(
-            nn.ConvTranspose2d(feature_maps*4, feature_maps, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(feature_maps * 4, feature_maps, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(feature_maps),
             nn.ReLU(inplace=True)
         )
         
-        # Выходной слой
+        self.dec4 = nn.Sequential(
+            nn.ConvTranspose2d(feature_maps * 2, feature_maps // 2, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(feature_maps // 2),
+            nn.ReLU(inplace=True)
+        )
+        
         self.final = nn.Sequential(
-            nn.ConvTranspose2d(feature_maps*2, 1, kernel_size=4, stride=2, padding=1)
+            nn.Conv2d(feature_maps // 2, 1, kernel_size=3, padding=1),
+            nn.Sigmoid()
         )
         
     def forward(self, x, mask):
-        # Объединяем входное изображение и маску
         x_combined = torch.cat([x, mask], dim=1)
         
-        # Кодирование
-        e1 = self.enc1(x_combined)  # [batch, feature_maps, H/2, W/2]
-        e2 = self.enc2(e1)          # [batch, feature_maps*2, H/4, W/4]
-        e3 = self.enc3(e2)          # [batch, feature_maps*4, H/8, W/8]
-        e4 = self.enc4(e3)          # [batch, feature_maps*8, H/16, W/16]
+        # --- Кодирование ---
+        e1 = self.enc1(x_combined)
+        e2 = self.enc2(e1)
+        e3 = self.enc3(e2)
+        e4 = self.enc4(e3)
         
-        # Декодирование с пропускными соединениями
-        d1 = self.dec1(e4)          # [batch, feature_maps*4, H/8, W/8]
-        d1 = torch.cat([d1, e3], dim=1)  # [batch, feature_maps*8, H/8, W/8]
+        # --- Bottleneck ---
+        bn = self.bottleneck(e4)
         
-        d2 = self.dec2(d1)          # [batch, feature_maps*2, H/4, W/4]
-        d2 = torch.cat([d2, e2], dim=1)  # [batch, feature_maps*4, H/4, W/4]
+        # --- Декодирование с пропусками ---
+        d1 = self.dec1(bn)
+        d1 = torch.cat([d1, e3], dim=1)
         
-        d3 = self.dec3(d2)          # [batch, feature_maps, H/2, W/2]
-        d3 = torch.cat([d3, e1], dim=1)  # [batch, feature_maps*2, H/2, W/2]
+        d2 = self.dec2(d1)
+        d2 = torch.cat([d2, e2], dim=1)
         
-        # Финальный выход
-        output = self.final(d3)    # [batch, 1, H, W]
+        d3 = self.dec3(d2)
+        d3 = torch.cat([d3, e1], dim=1)
         
-        # Комбинируем оригинальное изображение и сгенерированную часть
-        composite = x * (1- mask) + output * mask
+        d4 = self.dec4(d3)
         
-        return composite, output
+        output = self.final(d4)
+        return output
 
 
 class GanDiscriminator(nn.Module):
     def __init__(self, input_channels=1, feature_maps=64):
         super(GanDiscriminator, self).__init__()
         
-        # PatchGAN дискриминатор
         self.layer1 = ConvBlock(input_channels, feature_maps, 
                                kernel_size=4, stride=2, padding=1, 
                                use_bn=False, activation=nn.LeakyReLU(0.2))
