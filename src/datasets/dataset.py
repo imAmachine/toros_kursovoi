@@ -154,7 +154,6 @@ class DatasetCreator:
             A.ElasticTransform(alpha=120, sigma=6, p=0.3),
             A.GridDistortion(num_steps=5, distort_limit=0.2, p=0.3),
             A.RandomCrop(height=512, width=512, p=0.5),
-            # A.Resize(height=1024, width=1024, interpolation=cv2.INTER_LANCZOS4, p=1)
         ])
     
     def _preprocess_pipeline(self):

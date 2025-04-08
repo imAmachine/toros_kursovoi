@@ -40,7 +40,7 @@ class GeneratorModelTrainer(IModelTrainer):
     def __init__(self, model, discriminator):
         self.model = model
         self.discriminator = discriminator
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=0.002, betas=(0.5, 0.999))
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=0.005, betas=(0.5, 0.999))
         
         self.adv_criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
@@ -69,7 +69,8 @@ class GeneratorModelTrainer(IModelTrainer):
         gen_adv_loss_masked = self._calc_adv_masked_region_loss(generated, masks)
         
         # Общая потеря
-        gen_total_loss = gen_adv_loss + gen_adv_loss_masked
+        gen_total_loss = gen_adv_loss * 0.9 + gen_adv_loss_masked * 1.1
+        
         
         # Обратное распространение
         gen_total_loss.backward()
@@ -89,7 +90,7 @@ class GeneratorModelTrainer(IModelTrainer):
 class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
-        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0004, betas=(0.5, 0.999))
+        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0005, betas=(0.5, 0.999))
         self.criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
 
