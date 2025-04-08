@@ -4,11 +4,7 @@ from .gan_components import AOTDiscriminator, AOTGenerator
 
 
 class GANModel:
-<<<<<<< HEAD
-    def __init__(self, target_image_size=1024):
-=======
     def __init__(self, target_image_size=1024, g_feature_maps=32, d_feature_maps=32):
->>>>>>> alpha
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_image_size = target_image_size
         self.g_feature_maps = g_feature_maps
