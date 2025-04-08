@@ -118,5 +118,5 @@ class GANTrainer:
         for key in self.epoch_g_losses:
             self.epoch_g_losses[key] /= batch_size
         
-        for key in self.epoch_g_losses:
-            self.epoch_g_losses[key] /= batch_size
+        for key in self.epoch_d_losses:
+            self.epoch_d_losses[key] /= batch_size
