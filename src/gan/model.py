@@ -36,6 +36,21 @@ class GenerativeModel:
         d_loss_dict = self.d_trainer.train_pipeline_step(targets, fake_images)
         
         return {'g_losses': g_loss_dict, 'd_losses': d_loss_dict}
+    
+    def _save_models(self, output_path):
+        self.g_trainer.save_model_state_dict(output_path)
+        self.d_trainer.save_model_state_dict(output_path)
+
+    def _load_weights(self, output_path):
+        os.makedirs(output_path, exist_ok=True)
+        
+        gen_path = os.path.join(output_path, 'generator.pt')
+        discr_path = os.path.join(output_path, 'discriminator.pt')
+        if os.path.exists(gen_path) and os.path.exists(discr_path):
+            self.generator.load_state_dict(torch.load(gen_path, map_location=self.device, weights_only=True))
+            self.discriminator.load_state_dict(torch.load(discr_path, map_location=self.device, weights_only=True))
+        else:
+            raise FileNotFoundError('Ошибка загрузки весов моделей')
 
 
 class GeneratorModelTrainer(IModelTrainer):

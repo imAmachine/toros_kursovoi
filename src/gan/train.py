@@ -9,9 +9,10 @@ from src.datasets.dataset import DatasetCreator
 
 
 class GANTrainer:
-    def __init__(self, model: GenerativeModel, dataset_processor: DatasetCreator, output_path, epochs=10, batch_size=8):
+    def __init__(self, model: GenerativeModel, dataset_processor: DatasetCreator, output_path, epochs=10, batch_size=8, load_weights=True):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
+        self.load_weights = load_weights
         self.dataset_processor = dataset_processor
 
         self.output_path = output_path
@@ -28,6 +29,13 @@ class GANTrainer:
                                                                           shuffle=True, 
                                                                           workers=4)
         
+        if self.load_weights:
+            try:
+                self.model._load_weights(self.output_path)
+                print("Веса моделей загружены успешно")
+            except Exception as e:
+                print(f"Ошибка загрузки весов: {e}")
+
         # Основной цикл обучения
         for epoch in range(self.epochs):
             self.model.generator.train()
@@ -54,6 +62,8 @@ class GANTrainer:
             self._calc_avg_losses(batch_size=len(train_loader))
             
             print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses.get('total_loss'):.4f}, D_loss: {self.epoch_d_losses.get('total_loss'):.4f}")
+            
+            self.model._save_models(self.output_path)
             
             # Валидация и визуализация результатов
             with torch.no_grad():
@@ -101,6 +111,8 @@ class GANTrainer:
                     plt.tight_layout()
                     plt.savefig(os.path.join(self.output_path, f'samples_epoch.png'), dpi=300)
                     plt.close()
+
+        self.model._save_models(self.output_path)
             
         return self.model.g_trainer.loss_history, self.model.d_trainer.loss_history
     
