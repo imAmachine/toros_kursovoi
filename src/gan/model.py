@@ -2,6 +2,8 @@ import os
 import torch
 import torch.nn as nn
 from torchvision.transforms import transforms
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from src.analyzer.fractal_funcs import FractalAnalyzer
 
 from src.gan.gan_arch import GanDiscriminator, GanGenerator
 from .interfaces import IModelTrainer
@@ -58,8 +60,11 @@ class GeneratorModelTrainer(IModelTrainer):
         self.discriminator = discriminator
         self.optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
 
+        self.scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.3, patience=10, verbose=True)
+
         self.adv_criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
+        self.loss_history_val = []
 
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "generator.pt"))
@@ -68,6 +73,23 @@ class GeneratorModelTrainer(IModelTrainer):
         fake_pred = self.discriminator(x_input, x_generated)
         real_label = torch.ones_like(fake_pred)
         return self.adv_criterion(fake_pred, real_label)
+    
+    def _calc_fractal_loss(self, generated, masks):
+        fd_losses=0
+        for i in range(len(generated)):
+            generated_np = generated[i].detach().cpu().squeeze().numpy()
+            mask_np = masks[i].detach().cpu().squeeze().numpy()
+
+            part_masked = generated_np * mask_np
+            part_unmasked = generated_np * (1 - mask_np)
+
+            fd_masked = FractalAnalyzer.calculate_fractal_dimension(*FractalAnalyzer.box_counting(part_masked))
+            fd_unmasked = FractalAnalyzer.calculate_fractal_dimension(*FractalAnalyzer.box_counting(part_unmasked))
+
+            fd_losses += abs(fd_masked - fd_unmasked)
+        fd_loss = fd_losses / len(generated)
+        if fd_loss < 0: print(fd_loss)
+        return torch.tensor(fd_loss, device=generated.device)
 
     def train_pipeline_step(self, input_masked, target, mask):
         device = next(self.model.parameters()).device
@@ -87,8 +109,11 @@ class GeneratorModelTrainer(IModelTrainer):
         l1_loss = torch.abs(generated - target) * mask
         l1_loss = l1_loss.mean()
 
+        # Расчёт разницы фрактальной размерности
+        fd_loss = self._calc_fractal_loss(generated, mask)
+
         # Общий генераторный loss
-        total_loss = adv_loss + l1_loss
+        total_loss = adv_loss + l1_loss + fd_loss
 
         total_loss.backward()
         self.optimizer.step()
@@ -96,17 +121,46 @@ class GeneratorModelTrainer(IModelTrainer):
         loss_dict = {
             'adv_loss': adv_loss.item(),
             'l1_loss': l1_loss.item(),
+            'fd_loss': fd_loss.item(),
             'total_loss': total_loss.item()
         }
         self.loss_history.append(loss_dict)
 
         return loss_dict, generated
+    
+    def val_pipeline_step(self, val_inputs, val_targets, val_masks):
+
+        generated_val = self.model(val_inputs, val_masks)
+
+        # (дискриминатор должен принять вход + результат генератора)
+        adv_loss_val = self._calc_adv_loss(val_masks, generated_val)
+
+        # L1 loss только по маскированной области
+        l1_loss_val = torch.abs(generated_val - val_targets) * val_masks
+        l1_loss_val = l1_loss_val.mean()
+
+        # Расчёт разницы фрактальной размерности
+        fd_loss_val = self._calc_fractal_loss(generated_val, val_masks)
+
+        # Общий генераторный loss
+        total_loss_val = adv_loss_val + l1_loss_val + fd_loss_val
+
+        loss_dict_val = {
+            'adv_loss': adv_loss_val.item(),
+            'l1_loss': l1_loss_val.item(),
+            'fd_loss': fd_loss_val.item(),
+            'total_loss': total_loss_val.item()
+        }
+        self.loss_history_val.append(loss_dict_val)
+
+        return loss_dict_val, generated_val
 
 
 class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
         self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0005, betas=(0.5, 0.999))
+        self.scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.3, patience=7, verbose=True)
         self.criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
 

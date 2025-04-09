@@ -73,7 +73,7 @@ class IceRidgeDataset(Dataset):
 class IceRidgeDatasetGenerator:
    def __init__(self, 
                 albumentations_pipeline=None,
-                augmentations_per_image=10):
+                augmentations_per_image=25):
        self.augmentation_pipeline = albumentations_pipeline
        self.augmentations_per_image = augmentations_per_image
 

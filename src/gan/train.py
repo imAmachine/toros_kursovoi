@@ -40,7 +40,7 @@ class GANTrainer:
         for epoch in range(self.epochs):
             self.model.generator.train()
             self.model.discriminator.train()
-            
+
             progress = tqdm(train_loader, desc=f"Epoch {epoch+1}")
             
             for damaged, originals, damaged_masks in progress:
@@ -61,10 +61,9 @@ class GANTrainer:
             
             self._calc_avg_losses(batch_size=len(train_loader))
             
-            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses.get('total_loss'):.4f}, D_loss: {self.epoch_d_losses.get('total_loss'):.4f}")
-            
             self.model._save_models(self.output_path)
             
+            val_g_loss_total = 0.0
             # Валидация и визуализация результатов
             with torch.no_grad():
                 self.model.generator.eval()
@@ -77,9 +76,14 @@ class GANTrainer:
                     val_inputs = val_inputs.to(self.device).detach()
                     val_targets = val_targets.to(self.device).detach()
                     val_masks = val_masks.to(self.device).detach()
-                    
+
                     # Генерация изображений
                     generated_val = self.model.generator(val_inputs, val_masks)
+
+                    # loss_dict_val, generated_val = self.model.g_trainer.val_pipeline_step(val_inputs, val_targets, val_masks)
+
+                    # self.model.g_trainer.scheduler.step(loss_dict_val.get('total_loss'))
+                    # self.model.d_trainer.scheduler.step(epoch_d_loss)
                     
                     # Визуализация
                     plt.figure(figsize=(15, 15))
@@ -111,6 +115,8 @@ class GANTrainer:
                     plt.tight_layout()
                     plt.savefig(os.path.join(self.output_path, f'samples_epoch.png'), dpi=300)
                     plt.close()
+
+            print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses.get('total_loss'):.4f}, D_loss: {self.epoch_d_losses.get('total_loss'):.4f}")
 
         self.model._save_models(self.output_path)
             
