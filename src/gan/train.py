@@ -44,9 +44,9 @@ class GANTrainer:
             progress = tqdm(train_loader, desc=f"Epoch {epoch+1}")
             
             for damaged, originals, damaged_masks in progress:
-                damaged = damaged.to(self.device)
-                originals = originals.to(self.device)
-                damaged_masks = damaged_masks.to(self.device)
+                damaged = damaged.to(self.device).detach()
+                originals = originals.to(self.device).detach()
+                damaged_masks = damaged_masks.to(self.device).detach()
                 
                 losses = self.model.train_step(inputs=damaged,
                                       targets=originals,

@@ -33,6 +33,11 @@ class GanGenerator(nn.Module):
             nn.Conv2d(feature_maps * 8, feature_maps * 8, kernel_size=3, padding=1),
             nn.BatchNorm2d(feature_maps * 8),
             nn.ReLU(inplace=True),
+            
+            nn.Conv2d(feature_maps * 8, feature_maps * 8, kernel_size=3, padding=1),
+            nn.BatchNorm2d(feature_maps * 8),
+            nn.ReLU(inplace=True),
+            
             nn.Conv2d(feature_maps * 8, feature_maps * 8, kernel_size=3, padding=1),
             nn.BatchNorm2d(feature_maps * 8),
             nn.ReLU(inplace=True),
@@ -66,8 +71,7 @@ class GanGenerator(nn.Module):
         )
         
         self.final = nn.Sequential(
-            nn.Conv2d(feature_maps // 2, 1, kernel_size=3, padding=1),
-            nn.Sigmoid()
+            nn.Conv2d(feature_maps // 2, 1, kernel_size=3, padding=1)
         )
         
     def forward(self, x, mask):
@@ -118,10 +122,8 @@ class GanDiscriminator(nn.Module):
             nn.BatchNorm2d(feature_maps*8),
             nn.LeakyReLU(0.2, inplace=True),
             
-            nn.Conv2d(feature_maps*8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
+            nn.Conv2d(feature_maps*8, 1, 4, 1, 0, bias=False)
         )
     
     def forward(self, x):
-        x = torch.clamp(x, 0, 1)
         return self.layers(x)

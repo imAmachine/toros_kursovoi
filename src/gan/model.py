@@ -19,10 +19,9 @@ class GenerativeModel:
     def get_transforms(self):
         return transforms.Compose([
             transforms.ToPILImage(),
-            # transforms.GaussianBlur(1),
+            transforms.GaussianBlur(1),
             transforms.Resize((self.target_image_size, self.target_image_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5])
+            transforms.ToTensor()
         ])
 
     def _init_trainers(self):
@@ -57,9 +56,9 @@ class GeneratorModelTrainer(IModelTrainer):
     def __init__(self, model, discriminator):
         self.model = model
         self.discriminator = discriminator
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=0.005, betas=(0.5, 0.999))
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
         
-        self.adv_criterion = nn.BCELoss()
+        self.adv_criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):
@@ -101,7 +100,7 @@ class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
         self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0005, betas=(0.5, 0.999))
-        self.criterion = nn.BCELoss()
+        self.criterion = nn.BCEWithLogitsLoss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):
