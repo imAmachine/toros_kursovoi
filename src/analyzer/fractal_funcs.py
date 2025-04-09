@@ -38,12 +38,6 @@ class FractalAnalyzer:
 
 
 class FractalAnalyzerGPU:
-    """
-    Класс для анализа фрактальной размерности на GPU с использованием PyTorch.
-    Предполагается, что входное бинарное изображение (binary_image) является тензором PyTorch,
-    находящимся на GPU, где значения > 0 считаются заполненными.
-    """
-
     @staticmethod
     def box_counting(binary_image):
         sizes = []

@@ -104,7 +104,7 @@ class GanGenerator(nn.Module):
 
 
 class GanDiscriminator(nn.Module):
-    def __init__(self, input_channels=2, feature_maps=64):
+    def __init__(self, input_channels=1, feature_maps=64):
         super().__init__()
 
         self.layers = nn.Sequential(
@@ -127,6 +127,5 @@ class GanDiscriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x_input, x_output):
-        x = torch.cat([x_input, x_output], dim=1)
+    def forward(self, x):
         return self.layers(x)

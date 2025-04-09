@@ -144,13 +144,13 @@ class DatasetCreator:
         self.preprocessor.add_processors(processors=[
             EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфинга
             RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
-            CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
+            CropProcessor(crop_percent=7), # кроп по краям в процентном соотношении
             #FractalDimensionProcessor() # вычисление фрактальной размерности
         ])
     
     def _init_generator(self):
         self.dataset_generator.augmentation_pipeline = A.Compose([
-            A.RandomRotate90(p=0.5),
+            A.RandomRotate90(p=1),
             A.ElasticTransform(alpha=120, sigma=6, p=0.3),
             A.GridDistortion(num_steps=5, distort_limit=0.2, p=0.3),
             # A.RandomCrop(height=512, width=512, p=0.5),

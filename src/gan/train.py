@@ -114,7 +114,6 @@ class GANTrainer:
                         plt.close()
 
             print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses.get('total_loss'):.4f}, D_loss: {self.epoch_d_losses.get('total_loss'):.4f}")
-            print(f'fd_loss: {losses.get('fd_loss')}')
 
         self.model._save_models(self.output_path)
             
