@@ -153,7 +153,7 @@ class DatasetCreator:
             A.RandomRotate90(p=0.5),
             A.ElasticTransform(alpha=120, sigma=6, p=0.3),
             A.GridDistortion(num_steps=5, distort_limit=0.2, p=0.3),
-            A.RandomCrop(height=512, width=512, p=0.5),
+            # A.RandomCrop(height=512, width=512, p=0.5),
         ])
     
     def _preprocess_pipeline(self):

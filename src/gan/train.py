@@ -70,9 +70,6 @@ class GANTrainer:
                 self.model.discriminator.eval()
                 
                 for batch_idx, (val_inputs, val_targets, val_masks) in enumerate(val_loader):
-                    if batch_idx == 1:
-                        break
-                    
                     val_inputs = val_inputs.to(self.device).detach()
                     val_targets = val_targets.to(self.device).detach()
                     val_masks = val_masks.to(self.device).detach()
@@ -80,43 +77,44 @@ class GANTrainer:
                     # Генерация изображений
                     generated_val = self.model.generator(val_inputs, val_masks)
 
-                    # loss_dict_val, generated_val = self.model.g_trainer.val_pipeline_step(val_inputs, val_targets, val_masks)
+                    # loss_dict_val, generated_val = self.model.g_trainer.step(val_inputs, val_targets, val_masks)
 
-                    # self.model.g_trainer.scheduler.step(loss_dict_val.get('total_loss'))
-                    # self.model.d_trainer.scheduler.step(epoch_d_loss)
+                    # self.model.g_trainer.scheduler.get_last_lr()
                     
-                    # Визуализация
-                    plt.figure(figsize=(15, 15))
-                    for i in range(min(5, len(val_inputs))):  # Первые 5 изображений
-                        # Исходное изображение с маской
-                        plt.subplot(4, 5, i + 1)
-                        plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title(f'Input [Batch {batch_idx}]')
-                        plt.axis('off')
+                    if batch_idx == 1:
+                        # Визуализация
+                        plt.figure(figsize=(15, 15))
+                        for i in range(min(5, len(val_inputs))):  # Первые 5 изображений
+                            # Исходное изображение с маской
+                            plt.subplot(4, 5, i + 1)
+                            plt.imshow(val_inputs[i].cpu().squeeze().numpy(), cmap='gray')
+                            plt.title(f'Input [Batch {batch_idx}]')
+                            plt.axis('off')
+                            
+                            # Маска
+                            plt.subplot(4, 5, i + 6)
+                            plt.imshow(val_masks[i].cpu().squeeze().numpy(), cmap='gray')
+                            plt.title(f'Mask [Batch {batch_idx}]')
+                            plt.axis('off')
+                            
+                            # Сгенерированное изображение
+                            plt.subplot(4, 5, i + 11)
+                            plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
+                            plt.title(f'Generated [Batch {batch_idx}]')
+                            plt.axis('off')
+                            
+                            # Целевое изображение
+                            plt.subplot(4, 5, i + 16)
+                            plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
+                            plt.title(f'Target [Batch {batch_idx}]')
+                            plt.axis('off')
                         
-                        # Маска
-                        plt.subplot(4, 5, i + 6)
-                        plt.imshow(val_masks[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title(f'Mask [Batch {batch_idx}]')
-                        plt.axis('off')
-                        
-                        # Сгенерированное изображение
-                        plt.subplot(4, 5, i + 11)
-                        plt.imshow(generated_val[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title(f'Generated [Batch {batch_idx}]')
-                        plt.axis('off')
-                        
-                        # Целевое изображение
-                        plt.subplot(4, 5, i + 16)
-                        plt.imshow(val_targets[i].cpu().squeeze().numpy(), cmap='gray')
-                        plt.title(f'Target [Batch {batch_idx}]')
-                        plt.axis('off')
-                    
-                    plt.tight_layout()
-                    plt.savefig(os.path.join(self.output_path, f'samples_epoch.png'), dpi=300)
-                    plt.close()
+                        plt.tight_layout()
+                        plt.savefig(os.path.join(self.output_path, f'samples_epoch.png'), dpi=300)
+                        plt.close()
 
             print(f"Epoch {epoch+1}/{self.epochs} - G_loss: {self.epoch_g_losses.get('total_loss'):.4f}, D_loss: {self.epoch_d_losses.get('total_loss'):.4f}")
+            print(f'fd_loss: {losses.get('fd_loss')}')
 
         self.model._save_models(self.output_path)
             

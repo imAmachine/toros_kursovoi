@@ -13,5 +13,5 @@ class IModelTrainer(ABC):
         pass
     
     @abstractmethod
-    def train_pipeline_step(self):
+    def step(self):
         pass

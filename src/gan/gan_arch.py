@@ -123,7 +123,8 @@ class GanDiscriminator(nn.Module):
             nn.BatchNorm2d(feature_maps*8),
             nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(feature_maps*8, 1, 4, 1, 0, bias=False)
+            nn.Conv2d(feature_maps*8, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid()
         )
 
     def forward(self, x_input, x_output):

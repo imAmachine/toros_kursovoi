@@ -21,7 +21,7 @@ class GenerativeModel:
     def get_transforms(self):
         return transforms.Compose([
             transforms.ToPILImage(),
-            transforms.GaussianBlur(1),
+            # transforms.GaussianBlur(1),
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor()
         ])
@@ -33,8 +33,8 @@ class GenerativeModel:
         return g_trainer, d_trainer
     
     def train_step(self, inputs, targets, masks):
-        g_loss_dict, fake_images = self.g_trainer.train_pipeline_step(inputs, targets, masks)
-        d_loss_dict = self.d_trainer.train_pipeline_step(inputs, targets, fake_images)
+        g_loss_dict, fake_images = self.g_trainer.step(inputs, targets, masks)
+        d_loss_dict = self.d_trainer.step(inputs, targets, fake_images)
         
         return {'g_losses': g_loss_dict, 'd_losses': d_loss_dict}
     
@@ -62,24 +62,30 @@ class GeneratorModelTrainer(IModelTrainer):
 
         self.scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.3, patience=10, verbose=True)
 
-        self.adv_criterion = nn.BCEWithLogitsLoss()
+        self.adv_criterion = nn.BCELoss()
         self.loss_history = []
         self.loss_history_val = []
 
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "generator.pt"))
 
-    def _calc_adv_loss(self, x_input, x_generated):
-        fake_pred = self.discriminator(x_input, x_generated)
-        real_label = torch.ones_like(fake_pred)
-        return self.adv_criterion(fake_pred, real_label)
+    def _calc_adv_loss(self, target, generated, mask):
+        fake_pred_known = self.discriminator(target * (1 - mask), generated * (1 - mask))
+        real_label_known = torch.ones_like(fake_pred_known)
+        
+        fake_pred_damaged = self.discriminator(target * mask, generated * mask)
+        real_label_damaged = torch.ones_like(fake_pred_known)
+        
+        total_adv_loss = (self.adv_criterion(fake_pred_known, real_label_known) + self.adv_criterion(fake_pred_damaged, real_label_damaged)) * 0.5
+        
+        return total_adv_loss
     
     def _calc_fractal_loss(self, generated, masks):
         fd_losses = 0
         batch_size = generated.shape[0]
         for i in range(batch_size):
-            img = generated[i].squeeze()
-            m = masks[i].squeeze()
+            img = generated[i].detach().squeeze()
+            m = masks[i].detach().squeeze()
 
             part_masked = img * m
             part_unmasked = img * (1 - m)
@@ -95,27 +101,15 @@ class GeneratorModelTrainer(IModelTrainer):
 
             fd_losses += abs(fd_masked - fd_unmasked)
         fd_loss = fd_losses / batch_size
-        return torch.tensor(fd_loss, device=generated.device)
+        return fd_loss
 
-    def train_pipeline_step(self, input_masked, target, mask):
-        device = next(self.model.parameters()).device
-
-        input_masked = input_masked.to(device)
-        target = target.to(device)
-        mask = mask.to(device)
-
+    def step(self, input_masked, target, mask):
         self.optimizer.zero_grad()
-
         generated = self.model(input_masked, mask)
 
-        # (дискриминатор должен принять вход + результат генератора)
-        adv_loss = self._calc_adv_loss(input_masked, generated)
-
-        # L1 loss только по маскированной области
-        l1_loss = torch.abs(generated - target) * mask
+        adv_loss = self._calc_adv_loss(target, generated, mask)
+        l1_loss = torch.abs(target - generated) * mask
         l1_loss = l1_loss.mean()
-
-        # Расчёт разницы фрактальной размерности
         fd_loss = self._calc_fractal_loss(generated, mask)
 
         # Общий генераторный loss
@@ -133,49 +127,22 @@ class GeneratorModelTrainer(IModelTrainer):
         self.loss_history.append(loss_dict)
 
         return loss_dict, generated
-    
-    def val_pipeline_step(self, val_inputs, val_targets, val_masks):
-
-        generated_val = self.model(val_inputs, val_masks)
-
-        # (дискриминатор должен принять вход + результат генератора)
-        adv_loss_val = self._calc_adv_loss(val_masks, generated_val)
-
-        # L1 loss только по маскированной области
-        l1_loss_val = torch.abs(generated_val - val_targets) * val_masks
-        l1_loss_val = l1_loss_val.mean()
-
-        # Расчёт разницы фрактальной размерности
-        fd_loss_val = self._calc_fractal_loss(generated_val, val_masks)
-
-        # Общий генераторный loss
-        total_loss_val = adv_loss_val + l1_loss_val + fd_loss_val
-
-        loss_dict_val = {
-            'adv_loss': adv_loss_val.item(),
-            'l1_loss': l1_loss_val.item(),
-            'fd_loss': fd_loss_val.item(),
-            'total_loss': total_loss_val.item()
-        }
-        self.loss_history_val.append(loss_dict_val)
-
-        return loss_dict_val, generated_val
 
 
 class DiscriminatorModelTrainer(IModelTrainer):
     def __init__(self, model, optimizer=None):
         self.model = model
-        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.0005, betas=(0.5, 0.999))
+        self.optimizer = optimizer or torch.optim.Adam(model.parameters(), lr=0.001, betas=(0.5, 0.999))
         self.scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.3, patience=7, verbose=True)
-        self.criterion = nn.BCEWithLogitsLoss()
+        self.criterion = nn.BCELoss()
         self.loss_history = []
 
     def save_model_state_dict(self, output_path):
         torch.save(self.model.state_dict(), os.path.join(output_path, "discriminator.pt"))
 
-    def _calc_adv_loss(self, fake_input, fake_output, real_input, real_output):
+    def _calc_adv_loss(self, fake_output, real_input, real_output):
         real_pred = self.model(real_input, real_output)
-        fake_pred = self.model(fake_input, fake_output.detach())
+        fake_pred = self.model(real_input, fake_output.detach())
 
         real_label = torch.ones_like(real_pred)
         fake_label = torch.zeros_like(fake_pred)
@@ -185,7 +152,7 @@ class DiscriminatorModelTrainer(IModelTrainer):
 
         return {'real_loss': real_loss, 'fake_loss': fake_loss}
 
-    def train_pipeline_step(self, input_masked, real_target, fake_generated):
+    def step(self, input_masked, real_target, fake_generated):
         device = next(self.model.parameters()).device
 
         input_masked = input_masked.to(device)
@@ -193,10 +160,9 @@ class DiscriminatorModelTrainer(IModelTrainer):
         fake_generated = fake_generated.to(device)
 
         self.optimizer.zero_grad()
-        adv_losses = self._calc_adv_loss(
-            fake_input=input_masked, fake_output=fake_generated,
-            real_input=input_masked, real_output=real_target
-        )
+        adv_losses = self._calc_adv_loss(fake_output=fake_generated, 
+                                         real_input=input_masked, 
+                                         real_output=real_target)
         disc_loss = 0.5 * (adv_losses['real_loss'] + adv_losses['fake_loss'])
 
         disc_loss.backward()
