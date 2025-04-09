@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torchvision.transforms import transforms
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from src.analyzer.fractal_funcs import FractalAnalyzer
+from src.analyzer.fractal_funcs import FractalAnalyzer, FractalAnalyzerGPU
 
 from src.gan.gan_arch import GanDiscriminator, GanGenerator
 from .interfaces import IModelTrainer
@@ -75,20 +75,26 @@ class GeneratorModelTrainer(IModelTrainer):
         return self.adv_criterion(fake_pred, real_label)
     
     def _calc_fractal_loss(self, generated, masks):
-        fd_losses=0
-        for i in range(len(generated)):
-            generated_np = generated[i].detach().cpu().squeeze().numpy()
-            mask_np = masks[i].detach().cpu().squeeze().numpy()
+        fd_losses = 0
+        batch_size = generated.shape[0]
+        for i in range(batch_size):
+            img = generated[i].squeeze()
+            m = masks[i].squeeze()
 
-            part_masked = generated_np * mask_np
-            part_unmasked = generated_np * (1 - mask_np)
+            part_masked = img * m
+            part_unmasked = img * (1 - m)
 
-            fd_masked = FractalAnalyzer.calculate_fractal_dimension(*FractalAnalyzer.box_counting(part_masked))
-            fd_unmasked = FractalAnalyzer.calculate_fractal_dimension(*FractalAnalyzer.box_counting(part_unmasked))
+            fd_masked = FractalAnalyzerGPU.calculate_fractal_dimension(
+                *FractalAnalyzerGPU.box_counting(part_masked),
+                device=generated.device
+            )
+            fd_unmasked = FractalAnalyzerGPU.calculate_fractal_dimension(
+                *FractalAnalyzerGPU.box_counting(part_unmasked),
+                device=generated.device
+            )
 
             fd_losses += abs(fd_masked - fd_unmasked)
-        fd_loss = fd_losses / len(generated)
-        if fd_loss < 0: print(fd_loss)
+        fd_loss = fd_losses / batch_size
         return torch.tensor(fd_loss, device=generated.device)
 
     def train_pipeline_step(self, input_masked, target, mask):
