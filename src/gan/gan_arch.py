@@ -71,7 +71,8 @@ class GanGenerator(nn.Module):
         )
         
         self.final = nn.Sequential(
-            nn.Conv2d(feature_maps // 2, 1, kernel_size=3, padding=1)
+            nn.Conv2d(feature_maps // 2, 1, kernel_size=3, padding=1),
+            nn.Sigmoid()
         )
         
     def forward(self, x, mask):
@@ -103,27 +104,28 @@ class GanGenerator(nn.Module):
 
 
 class GanDiscriminator(nn.Module):
-    def __init__(self, input_channels=1, feature_maps=64):
+    def __init__(self, input_channels=2, feature_maps=64):
         super().__init__()
-        
+
         self.layers = nn.Sequential(
             nn.Conv2d(input_channels, feature_maps, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             nn.Conv2d(feature_maps, feature_maps*2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(feature_maps*2),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             nn.Conv2d(feature_maps*2, feature_maps*4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(feature_maps*4),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             nn.Conv2d(feature_maps*4, feature_maps*8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(feature_maps*8),
             nn.LeakyReLU(0.2, inplace=True),
-            
+
             nn.Conv2d(feature_maps*8, 1, 4, 1, 0, bias=False)
         )
-    
-    def forward(self, x):
+
+    def forward(self, x_input, x_output):
+        x = torch.cat([x_input, x_output], dim=1)
         return self.layers(x)
