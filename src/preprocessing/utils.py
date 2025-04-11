@@ -9,9 +9,21 @@ class ImageProcess:
         return binary
     
     @staticmethod
-    def morph_bin_image(binary_image: np.ndarray, ksize=5):
+    def cv2_load_image(filename: str, cv2_read_mode: int=None):
+        if cv2_read_mode is None:
+            img = cv2.imread(filename)
+        else:
+            img = cv2.imread(filename, cv2_read_mode)
+        
+        if img is None:
+            raise ValueError(f"Failed to load image {filename}")
+        
+        return img
+    
+    @staticmethod
+    def morph_bin_image(image: np.ndarray, ksize=5):
         """улучшение с помощью морфологического закрытия"""
-        return cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize)))
+        return cv2.morphologyEx(image, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize)))
     
     @staticmethod
     def bounding_crop(img: np.ndarray) -> np.ndarray:

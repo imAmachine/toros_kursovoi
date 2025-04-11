@@ -9,8 +9,8 @@ from src.gan.gan_arch import GanDiscriminator, GanGenerator
 from .interfaces import IModelTrainer
 
 class GenerativeModel:
-    def __init__(self, target_image_size=512, g_feature_maps=64, d_feature_maps=16):
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    def __init__(self, target_image_size=512, g_feature_maps=64, d_feature_maps=16, device='cpu'):
+        self.device = device
         self.generator = GanGenerator(input_channels=2, feature_maps=g_feature_maps).to(self.device)
         self.discriminator = GanDiscriminator(input_channels=1, feature_maps=d_feature_maps).to(self.device)
         
@@ -21,7 +21,6 @@ class GenerativeModel:
     def get_transforms(self):
         return transforms.Compose([
             transforms.ToPILImage(),
-            # transforms.GaussianBlur(1),
             transforms.Resize((self.target_image_size, self.target_image_size)),
             transforms.ToTensor()
         ])

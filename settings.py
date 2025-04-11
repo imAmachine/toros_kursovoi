@@ -1,4 +1,8 @@
 import os
+import torch
+import albumentations as A
+
+from src.preprocessing.processors import *
 
 # путь к файлу с геоанализом исходных снимков
 GEODATA_PATH = "./data/geo_data.csv"
@@ -15,3 +19,25 @@ GENERATED_GAN_PATH = os.path.join(OUTPUT_FOLDER_PATH, 'generated')
 # пути к весам модели
 WEIGHTS_PATH = os.path.join(OUTPUT_FOLDER_PATH, 'model_weight/weights')
 GENERATOR_PATH = os.path.join(WEIGHTS_PATH, 'generator.pth')
+
+
+
+# ================ настройка основных параметров ==================
+
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+AUGMENTATIONS = A.Compose([
+            A.RandomRotate90(p=0.7),
+            A.ElasticTransform(alpha=120, sigma=6, p=0.3),
+            A.GridDistortion(num_steps=5, distort_limit=0.2, p=0.3),
+            # A.RandomCrop(height=512, width=512, p=0.5),
+        ])
+
+PREPROCESSORS = [
+            Binarize(),
+            # CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
+            # EnchanceProcessor(morph_kernel_size=3), # улучшает маску с помощью морфинга
+            RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
+            AutoAdjust(),
+        ]
+
+MASKS_FILE_EXTENSIONS = ['.png']

@@ -2,40 +2,12 @@ from enum import Enum
 from typing import Any, Dict
 import cv2
 import numpy as np
+import torch
 
-from src.analyzer.fractal_funcs import FractalAnalyzer
+from src.analyzer.fractal_funcs import FractalAnalyzer, FractalAnalyzerGPU
 from src.analyzer.rotation_analyze import RotationAnalyze
 from .interfaces import IProcessor
 from .utils import ImageProcess
-
-
-class CropProcessor(IProcessor):
-    METADATA_NAME = 'crop'
-    
-    def __init__(self, crop_percent = 0):
-        self.crop_percent = crop_percent
-        
-    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
-        cropped = ImageProcess.crop_image(image, self.crop_percent)
-        adjusted = ImageProcess.auto_adjust(cropped)
-        metadata.update({self.METADATA_NAME: True})
-        
-        return adjusted, metadata
-
-
-class EnchanceProcessor(IProcessor):
-    METADATA_NAME = 'morphing'
-    
-    def __init__(self, morph_kernel_size=5):
-        self.morph_kernel_size = morph_kernel_size
-        
-    
-    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
-        bin_image = ImageProcess.binarize_by_threshold(image)
-        morph_img = ImageProcess.morph_bin_image(bin_image, ksize=self.morph_kernel_size)
-        metadata.update({self.METADATA_NAME: True})
-        
-        return morph_img, metadata
 
 
 class AngleChooseType(Enum):
@@ -44,25 +16,78 @@ class AngleChooseType(Enum):
     CONSISTENT = RotationAnalyze.get_consistent_angle
 
 
-class RotateMaskProcessor(IProcessor):
-    METADATA_NAME = 'rotation'
+class CropProcessor(IProcessor):
+    """Процессор для обрезки изображения"""
     
-    def __init__(self, angle_choose_type: AngleChooseType):
+    def __init__(self, processor_name: str = None, crop_percent: int = 0):
+        super().__init__(processor_name)
+        self.crop_percent = crop_percent
+    
+    @property
+    def PROCESSORS_NEEDED(self):
+        return []
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        return ImageProcess.crop_image(image, self.crop_percent)
+
+
+class AutoAdjust(IProcessor):
+    """Процессор для автоматической настройки изображения"""
+    
+    @property
+    def PROCESSORS_NEEDED(self):
+        return []
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        return ImageProcess.auto_adjust(image)
+
+
+class Binarize(IProcessor):
+    """Процессор для бинаризации изображения"""
+    
+    @property
+    def PROCESSORS_NEEDED(self):
+        return []
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        return ImageProcess.binarize_by_threshold(image)
+
+
+class EnchanceProcessor(IProcessor):
+    """Процессор для улучшения бинаризованного изображения с помощью морфологических операций"""
+    
+    def __init__(self, processor_name: str = None, morph_kernel_size: int = 5):
+        super().__init__(processor_name)
+        self.morph_kernel_size = morph_kernel_size
+    
+    @property
+    def PROCESSORS_NEEDED(self):
+        return [Binarize]
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        return ImageProcess.morph_bin_image(image, ksize=self.morph_kernel_size)
+
+
+class RotateMaskProcessor(IProcessor):
+    """Процессор для выравнивания изображения"""
+    
+    def __init__(self, processor_name: str = None, angle_choose_type: callable = None):
+        super().__init__(processor_name)
         self.angle_choose_type = angle_choose_type
+    
+    @property
+    def PROCESSORS_NEEDED(self):
+        return []
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        cropped_image = ImageProcess.bounding_crop(image)
+        angle = self._calculate_rotation_angle(cropped_image)
+        rotated_image = self._rotate_image(cropped_image, angle)
+        final_image = ImageProcess.bounding_crop(rotated_image)
         
-    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
-        if metadata is None:
-            metadata = {}
+        self._result_value = angle
         
-        bin_image = ImageProcess.bounding_crop(ImageProcess.binarize_by_threshold(image))
-        
-        angle = self._calculate_rotation_angle(bin_image)
-        rotated = self._rotate_image(image, angle)
-        bounded = ImageProcess.bounding_crop(rotated)
-        
-        metadata.update({self.METADATA_NAME: angle})
-        
-        return bounded, metadata
+        return final_image
     
     def _normalize_angle(self, angle: float) -> float:
         """Normalize angle to range [-90, 90) degrees"""
@@ -74,30 +99,68 @@ class RotateMaskProcessor(IProcessor):
             'rect': RotationAnalyze.get_rect_rotation_angle(image),
             'hough': RotationAnalyze.get_hough_rotation_angle(image)
         }
-    
-        result_angle = self.angle_choose_type(angles)
         
+        result_angle = self.angle_choose_type(angles)
         return result_angle
     
     def _rotate_image(self, img: np.ndarray, angle: float) -> np.ndarray:
         h, w = img.shape
         center = (w // 2, h // 2)
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated_img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-        
+        rotated_img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR, 
+                                    borderMode=cv2.BORDER_CONSTANT, borderValue=0)
         return rotated_img
 
 
-class FractalDimensionProcessor(IProcessor):
-    METADATA_NAME = 'fractal_dimension'
+class TensorConverterProcessor(IProcessor):
+    """Процессор для преобразования numpy.ndarray в torch.Tensor"""
     
-    def _calc_fract_dim(self, bin_img: np.ndarray):
-        sizes, counts = FractalAnalyzer.box_counting(bin_img)
-        return FractalAnalyzer.calculate_fractal_dimension(sizes, counts)
+    def __init__(self, processor_name: str = None, device: str = "cpu"):
+        super().__init__(processor_name)
+        self.device = device
     
-    def process(self, image: np.ndarray, metadata: Dict[str, Any] = None) -> tuple[np.ndarray, Dict[str, Any]]:
-        bin_img = ImageProcess.binarize_by_threshold(image)
-        fract_dimension = self._calc_fract_dim(bin_img)
-        metadata.update({self.METADATA_NAME: fract_dimension})
+    @property
+    def PROCESSORS_NEEDED(self):
+        return []
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        if not isinstance(image, np.ndarray):
+            return image
+            
+        tensor_image = torch.from_numpy(image).float().to(self.device)
         
-        return image, metadata
+        if len(tensor_image.shape) == 2:
+            tensor_image = tensor_image.unsqueeze(0)
+        
+        return tensor_image
+
+
+class FractalDimensionProcessorGPU(IProcessor):
+    """Процессор для расчета фрактальной размерности с использованием GPU"""
+    @property
+    def PROCESSORS_NEEDED(self):
+        return [TensorConverterProcessor]
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        fr_dim = FractalAnalyzerGPU.calculate_fractal_dimension(
+            *FractalAnalyzerGPU.box_counting(image), 
+            device=image.device)
+        
+        self._result_value = fr_dim.item()
+        
+        return image
+
+
+class FractalDimensionProcessorCPU(IProcessor):
+    """Процессор для расчета фрактальной размерности с использованием CPU"""
+    @property
+    def PROCESSORS_NEEDED(self):
+        return []
+    
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        fr_dim = FractalAnalyzer.calculate_fractal_dimension(
+            *FractalAnalyzer.box_counting(image))
+        
+        self._result_value = fr_dim.item()
+        
+        return image

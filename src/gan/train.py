@@ -25,9 +25,7 @@ class GANTrainer:
         os.makedirs(self.output_path, exist_ok=True)
     
     def train(self):
-        train_loader, val_loader = self.dataset_processor.get_dataloaders(batch_size=self.batch_size, 
-                                                                          shuffle=True, 
-                                                                          workers=4)
+        train_loader, val_loader = self.dataset_processor.create_dataloaders(batch_size=self.batch_size, shuffle=True, workers=4)
         
         if self.load_weights:
             try:
