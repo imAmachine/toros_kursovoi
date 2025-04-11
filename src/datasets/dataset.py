@@ -42,7 +42,7 @@ class IceRidgeDataset(Dataset):
     
     def _read_image(self, metadata_key) -> np.ndarray:
         orig_meta = self.metadata[metadata_key]
-        orig_path = orig_meta.get('output_path')
+        orig_path = orig_meta.get('path')
         return cv2.imread(orig_path, cv2.IMREAD_GRAYSCALE)
     
     def _get_processed_pair(self, input_img, masked, noised):
