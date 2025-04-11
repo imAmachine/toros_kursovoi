@@ -81,7 +81,8 @@ class RotateMaskProcessor(IProcessor):
     
     def process_image(self, image: np.ndarray) -> np.ndarray:
         cropped_image = ImageProcess.bounding_crop(image)
-        angle = self._calculate_rotation_angle(cropped_image)
+        temp_for_angle = ImageProcess.morph_bin_image(cropped_image.copy(), ksize=7)
+        angle = self._calculate_rotation_angle(temp_for_angle)
         rotated_image = self._rotate_image(cropped_image, angle)
         final_image = ImageProcess.bounding_crop(rotated_image)
         
