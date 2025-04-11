@@ -36,11 +36,10 @@ AUGMENTATIONS = A.Compose([
         ])
 
 PREPROCESSORS = [
-            Binarize(),
-            EnchanceProcessor(morph_kernel_size=2), # улучшает маску с помощью морфологических преобразований
-            Unbinarize(),
-            AutoAdjust(),
+            # EnchanceProcessor(morph_kernel_size=2), # улучшает маску с помощью морфологических преобразований
             RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
+            Binarize(),
+            Unbinarize(),
             AutoAdjust(),
             # CropProcessor(crop_percent=0.01), # кроп по краям в процентном соотношении
         ]
