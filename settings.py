@@ -3,6 +3,7 @@ import torch
 import albumentations as A
 
 from src.preprocessing.processors import *
+from torchvision.transforms import InterpolationMode
 
 # путь к файлу с геоанализом исходных снимков
 GEODATA_PATH = "./data/geo_data.csv"
@@ -26,18 +27,20 @@ GENERATOR_PATH = os.path.join(WEIGHTS_PATH, 'generator.pth')
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 AUGMENTATIONS = A.Compose([
-            A.RandomRotate90(p=0.7),
-            A.ElasticTransform(alpha=120, sigma=6, p=0.3),
-            A.GridDistortion(num_steps=5, distort_limit=0.2, p=0.3),
-            # A.RandomCrop(height=512, width=512, p=0.5),
+            A.OneOf([
+                A.RandomRotate90(p=0.8),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+            ], p=0.6),
+            A.RandomCrop(height=1024, width=1024, p=0.5)
         ])
 
 PREPROCESSORS = [
-            Binarize(),
-            # CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
-            # EnchanceProcessor(morph_kernel_size=3), # улучшает маску с помощью морфинга
             RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
+            CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
             AutoAdjust(),
+            Binarize(),
+            EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфологических преобразований
             Unbinarize()
         ]
 

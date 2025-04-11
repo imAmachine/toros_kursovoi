@@ -130,11 +130,13 @@ class IceRidgeDatasetGenerator:
         # Генерация аугментаций
         for i in range(count):
             augmented_image = self.augmentation_pipeline(image=image)['image']
+            binarized = ImageProcess.binarize_by_threshold(augmented_image, 0.4, 1)
+            
             new_filename = f"{base_name}_aug{i+1}{ext}"
             output_file_path = os.path.join(output_path, new_filename)
             
             # Сохранение изображения и метаданных
-            cv2.imwrite(output_file_path, augmented_image)
+            cv2.imwrite(output_file_path, binarized * 255)
             new_metadata[f"{base_name}_aug{i+1}"] = {
                 'path': output_file_path,
                 'orig_path': file_metadata.get('path'),
