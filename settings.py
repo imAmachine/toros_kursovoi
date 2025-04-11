@@ -36,12 +36,13 @@ AUGMENTATIONS = A.Compose([
         ])
 
 PREPROCESSORS = [
-            RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
-            CropProcessor(crop_percent=5), # кроп по краям в процентном соотношении
-            AutoAdjust(),
             Binarize(),
-            EnchanceProcessor(morph_kernel_size=7), # улучшает маску с помощью морфологических преобразований
-            Unbinarize()
+            EnchanceProcessor(morph_kernel_size=2), # улучшает маску с помощью морфологических преобразований
+            Unbinarize(),
+            AutoAdjust(),
+            RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
+            AutoAdjust(),
+            # CropProcessor(crop_percent=0.01), # кроп по краям в процентном соотношении
         ]
 
 MASKS_FILE_EXTENSIONS = ['.png']
