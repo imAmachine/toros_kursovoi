@@ -45,12 +45,17 @@ class AutoAdjust(IProcessor):
 class Binarize(IProcessor):
     """Процессор для бинаризации изображения"""
     
+    def process_image(self, image: np.ndarray) -> np.ndarray:
+        return ImageProcess.binarize_by_threshold(image, threshold=0.1, max_val=1)
+
+
+class Unbinarize(IProcessor):
     @property
     def PROCESSORS_NEEDED(self):
-        return []
+        return [Binarize]
     
-    def process_image(self, image: np.ndarray) -> np.ndarray:
-        return ImageProcess.binarize_by_threshold(image)
+    def process_image(self, image):
+        return image * 255
 
 
 class EnchanceProcessor(IProcessor):
@@ -74,10 +79,6 @@ class RotateMaskProcessor(IProcessor):
     def __init__(self, processor_name: str = None, angle_choose_type: callable = None):
         super().__init__(processor_name)
         self.angle_choose_type = angle_choose_type
-    
-    @property
-    def PROCESSORS_NEEDED(self):
-        return []
     
     def process_image(self, image: np.ndarray) -> np.ndarray:
         cropped_image = ImageProcess.bounding_crop(image)
@@ -120,10 +121,6 @@ class TensorConverterProcessor(IProcessor):
         super().__init__(processor_name)
         self.device = device
     
-    @property
-    def PROCESSORS_NEEDED(self):
-        return []
-    
     def process_image(self, image: np.ndarray) -> np.ndarray:
         if not isinstance(image, np.ndarray):
             return image
@@ -154,9 +151,6 @@ class FractalDimensionProcessorGPU(IProcessor):
 
 class FractalDimensionProcessorCPU(IProcessor):
     """Процессор для расчета фрактальной размерности с использованием CPU"""
-    @property
-    def PROCESSORS_NEEDED(self):
-        return []
     
     def process_image(self, image: np.ndarray) -> np.ndarray:
         fr_dim = FractalAnalyzer.calculate_fractal_dimension(

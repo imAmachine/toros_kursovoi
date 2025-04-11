@@ -38,6 +38,7 @@ PREPROCESSORS = [
             # EnchanceProcessor(morph_kernel_size=3), # улучшает маску с помощью морфинга
             RotateMaskProcessor(angle_choose_type=AngleChooseType.CONSISTENT), # поворот масок к исходному углу
             AutoAdjust(),
+            Unbinarize()
         ]
 
 MASKS_FILE_EXTENSIONS = ['.png']

@@ -4,8 +4,8 @@ import numpy as np
 
 class ImageProcess:
     @staticmethod
-    def binarize_by_threshold(image: np.ndarray):
-        _, binary = cv2.threshold(image, 10, 255, cv2.THRESH_BINARY)
+    def binarize_by_threshold(image: np.ndarray, threshold=127, max_val=1):
+        _, binary = cv2.threshold(image, threshold, max_val, cv2.THRESH_BINARY)
         return binary
     
     @staticmethod
